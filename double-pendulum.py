@@ -65,15 +65,26 @@ def dpsidt(t, psi):
     
 
 if __name__ == "__main__":
-    psi_init = np.array([pi/6,0,0,0,0,0])
+    psi_init = np.array([pi/10,0,0,0,0,0])
     
-    result = solve_ivp(dpsidt, [0, 10], psi_init)
+    result = solve_ivp(dpsidt, [0, 3], psi_init)
 
-    theta_1 = np.mod(result[0, :], 2*pi)
-    theta_2 = np.mod(result[1, :], 2*pi)
-    q       = result[2, :]
+    theta_1 = np.mod(result.y[0, :], 2*pi)
+    theta_2 = np.mod(result.y[1, :], 2*pi)
+    q       = result.y[2, :]
 
     print(np.transpose(result.y).shape)
-    plt.plot(result.t, np.transpose([theta_1, theta_2, q]))
-    plt.legend(['theta_1', 'theta_2', 'q'])
+
+    plt.figure()
+    plt.plot(result.t, np.transpose(theta_1))
+    plt.title("Theta 1")
+
+    plt.figure()
+    plt.plot(result.t, np.transpose(theta_2))
+    plt.title("Theta 2")
+
+    plt.figure()
+    plt.plot(result.t, np.transpose(q))
+    plt.title("q")
+
     plt.show()
