@@ -7,16 +7,16 @@ from math import cos
 from math import sqrt
 from math import pi
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+L = 0.15 # m
+g = 9.81 # m/s^2
+A = -10 * (3*g*L)
+B = -10 * (1*g*L)
+d = sqrt(1/12)*L
+m = 0.25 # kg
 
 def dpsidt(t, psi):
-
-    L = 0.15 # m
-    g = 9.81 # m/s^2
-    A = 3*2*g*L
-    B = 1*2*g*L
-    d = sqrt(1/12)*L
-    m = 0.25 # kg
-
     theta_1   = psi[0]
     theta_2   = psi[1]
     q         = psi[2]
@@ -62,29 +62,64 @@ def dpsidt(t, psi):
     ])
 
     return psi_dot
-    
 
-if __name__ == "__main__":
-    psi_init = np.array([pi/10,0,0,0,0,0])
+def potential_plot():
+    num_points = 100
+    theta_1 = np.tile(np.linspace(-pi, pi, num_points), (num_points, 1))
+    theta_2 = np.transpose(theta_1)
+
+    U = 3/2*m*g*L*np.cos(theta_1)   +   1/2*m*g*L*np.cos(theta_2)   +   A/2*m*np.cos(theta_1)   +   B/2*m*np.cos(theta_2)
     
-    result = solve_ivp(dpsidt, [0, 3], psi_init)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(theta_1, theta_2, U)
+
+    plt.show()
+
+def solve(psi_init, t_domain):
+    result = solve_ivp(dpsidt, t_domain, psi_init)
+
+    num_points = result.y.shape[1]
+    
+    print("\n\nNumber of data points: %d\n\n" % num_points)
 
     theta_1 = np.mod(result.y[0, :], 2*pi)
     theta_2 = np.mod(result.y[1, :], 2*pi)
     q       = result.y[2, :]
 
-    print(np.transpose(result.y).shape)
+    x_1 = q + L/2*np.sin(theta_1)
+    y_1 = 0 + L/2*np.cos(theta_1)
 
-    plt.figure()
-    plt.plot(result.t, np.transpose(theta_1))
-    plt.title("Theta 1")
+    fig_1 = plt.figure()
+    ax_1 = fig_1.add_subplot(111, projection='3d')
+    ax_1.plot(x_1, y_1, result.t)
 
-    plt.figure()
-    plt.plot(result.t, np.transpose(theta_2))
-    plt.title("Theta 2")
+    x_2 = q + L*(np.sin(theta_1) + 1/2*np.sin(theta_2))
+    y_2 = 0 + L*(np.cos(theta_1) + 1/2*np.cos(theta_2))
+    
+    # fig_2 = plt.figure()
+    # ax_2 = fig_2.add_subplot(111, projection='3d')
+    # ax_2.plot(x_2, y_2, result.t)
 
-    plt.figure()
-    plt.plot(result.t, np.transpose(q))
-    plt.title("q")
+    fig_theta_1 = plt.figure()
+    ax_theta_1 = fig_theta_1.add_subplot(111)
+    ax_theta_1.plot(result.t, np.transpose(theta_1))
+    ax_theta_1.set_title("Theta 1")
+
+    fig_theta_2 = plt.figure()
+    ax_theta_2 = fig_theta_2.add_subplot(111)
+    ax_theta_2.plot(result.t, np.transpose(theta_2))
+    ax_theta_2.set_title("Theta 2")
+
+    fig_q = plt.figure()
+    ax_q = fig_q.add_subplot(111)
+    ax_q.plot(result.t, np.transpose(q))
+    ax_q.set_title("q")
 
     plt.show()
+
+if __name__ == "__main__":
+    psi_init = np.array([pi/20,0,0,0,0,0])
+    t_domain = [0, 2]
+
+    solve(psi_init, t_domain)
