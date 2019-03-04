@@ -5,13 +5,15 @@ from scipy.integrate import solve_ivp
 from math import sin
 from math import cos
 from math import sqrt
+from math import pi
+import matplotlib.pyplot as plt
 
 def dpsidt(t, psi):
 
     L = 0.15 # m
     g = 9.81 # m/s^2
-    A = 0
-    B = 0
+    A = 3*2*g*L
+    B = 1*2*g*L
     d = sqrt(1/12)*L
     m = 0.25 # kg
 
@@ -63,7 +65,15 @@ def dpsidt(t, psi):
     
 
 if __name__ == "__main__":
-    psi_init = np.array([0,0,0,0,0,0])
+    psi_init = np.array([pi/6,0,0,0,0,0])
     
-    result = solve_ivp(dpsidt, [0, 100], psi_init)
-    print(result)
+    result = solve_ivp(dpsidt, [0, 10], psi_init)
+
+    theta_1 = np.mod(result[0, :], 2*pi)
+    theta_2 = np.mod(result[1, :], 2*pi)
+    q       = result[2, :]
+
+    print(np.transpose(result.y).shape)
+    plt.plot(result.t, np.transpose([theta_1, theta_2, q]))
+    plt.legend(['theta_1', 'theta_2', 'q'])
+    plt.show()
