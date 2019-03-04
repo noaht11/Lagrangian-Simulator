@@ -1,19 +1,19 @@
 import numpy as np
-import sympy as sp
-import scipy as sci
+from sympy import Matrix
+from sympy import N
+from scipy.integrate import solve_ivp
 from math import sin
 from math import cos
-
-sp.init_printing(use_unicode=True)
+from math import sqrt
 
 def dpsidt(t, psi):
 
-    L = 1
-    g = 1
-    A = 1
-    B = 1
-    d = 1
-    m = 1
+    L = 0.15 # m
+    g = 9.81 # m/s^2
+    A = 0
+    B = 0
+    d = sqrt(1/12)*L
+    m = 0.25 # kg
 
     theta_1   = psi[0]
     theta_2   = psi[1]
@@ -34,17 +34,17 @@ def dpsidt(t, psi):
     y_q       = 1/2*m * (L*cos(theta_2))
     z_q       = 1/2*m * (4)
 
-    A = sp.Matrix([
+    mat = Matrix([
         [x_theta_1 , y_theta_1 , z_theta_1 , p_theta_1],
         [x_theta_2 , y_theta_2 , z_theta_2 , p_theta_2],
         [x_q       , y_q       , z_q       , p_q      ]
     ])
 
-    (B, _) = A.rref()
+    (sol, _) = mat.rref()
 
-    theta_1_dot = B[0,3]
-    theta_2_dot = B[1,3]
-    q_dot       = B[2,3]
+    theta_1_dot = float(sol[0,3])
+    theta_2_dot = float(sol[1,3])
+    q_dot       = float(sol[2,3])
 
     p_theta_1_dot = 1/2*m * (-3*q_dot*L*theta_1_dot*sin(theta_1)   -   L**2/4*theta_1_dot*theta_2_dot*sin(theta_1 - theta_2)   +   (3*g*L + A)*sin(theta_1))
     p_theta_2_dot = 1/2*m * (-1*q_dot*L*theta_2_dot*sin(theta_2)   -   L**2/4*theta_1_dot*theta_2_dot*sin(theta_1 - theta_2)   +   (1*g*L + B)*sin(theta_2))
@@ -65,4 +65,5 @@ def dpsidt(t, psi):
 if __name__ == "__main__":
     psi_init = np.array([0,0,0,0,0,0])
     
-    
+    result = solve_ivp(dpsidt, [0, 100], psi_init)
+    print(result)
