@@ -280,7 +280,7 @@ class PendulumAnimator:
         t0 = time()
         self.__animate(0)
         t1 = time()
-        interval = (1000 * self.dt - (t1-t0)) / 20
+        interval = (1000 * self.dt - (t1-t0)) / 10
 
         self.ani = animation.FuncAnimation(self.fig, self.__animate, frames=frames, interval=interval, blit=True, init_func=self.__reset, repeat=False)
 
@@ -299,7 +299,7 @@ if __name__ == "__main__":
 
     pendulum = ForcedDoublePendulum(L, m, d, A, B, [
         0, # theta_1
-        pi, # theta_2
+        pi/1000, # theta_2
         0, # q
         0, # p_theta_1
         0, # p_theta_2
