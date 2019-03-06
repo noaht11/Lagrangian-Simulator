@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import List, Tuple, Callable
 
 from math import sin, cos, pi
 from scipy.constants import g
@@ -34,6 +34,8 @@ def __neg_pi_to_pi(theta: float) -> float:
 #
 class DoublePendulum:
 
+    # Immutable class representing the current state of a double pendulum.
+    # See the DoublePendulum class description for information about each parameter.
     class State:
         def __init__(self, theta1: float = 0, theta2: float = 0, q: float = 0, theta1_dot: float = 0, theta2_dot: float = 0, q_dot: float = 0):
             self.__theta1     = theta1
@@ -50,10 +52,13 @@ class DoublePendulum:
         def theta2_dot(self) -> float : return self.__theta2_dot
         def q_dot(self)      -> float : return self.__q_dot
     
+    # Immutable class representing the mechanical properties of a double pendulum.
     class Properties:
-        # L             =   length of each arm
-        # m             =   mass of each arm
-        # d             =   moment of inertia factor such that I = 1/2 * m * d^2
+        # Initializes a new set of properties with the provided values
+        #
+        #   L             =   length of each arm
+        #   m             =   mass of each arm
+        #   d             =   moment of inertia factor such that I = 1/2 * m * d^2
         def __init__(self, L: float = 1.0, m: float = 1.0, d: float = 1.0):
             self.__L = L
             self.__m = m
@@ -63,8 +68,10 @@ class DoublePendulum:
         def m(self) -> float: return self.__m
         def d(self) -> float: return self.__d
 
-    # prop          =   mechanical properties of the pendulum
-    # init_state    =   initial state of the pendulum
+    # Initializes a new DoublePendulum with the provided properties and initial state
+    #
+    #   prop          =   mechanical properties of the pendulum
+    #   init_state    =   initial state of the pendulum
     def __init__(self, prop: Properties = Properties(), init_state: State = State()):
         self.__prop = prop
         self.__state = init_state
@@ -201,22 +208,51 @@ class DoublePendulumBehavior(ABC):
     #   Given an internal state representation y, computes the time derivative, dy/dt
     #
     @abstractmethod
-    def dy_dt(self, t: float, y: List[float]) -> List[float]:
+    def dy_dt(self, t: float, y: List[float], prop: DoublePendulum.Properties) -> List[float]:
         pass
 
 # Abstract Base Class for implementing numerical methods to solve the time evolution of a Double Pendulum
 class TimeEvolver(ABC):
 
-    @abstractmethod
     def evolve(self, pendulum : DoublePendulum, behavior: DoublePendulumBehavior, dt: float):
+        # Convert the current state to y vector
+        state_0 = pendulum.state()
+        y_0 = behavior.state_to_y(state_0)
+
+        # Solve the ODE
+        y_1 = self.solve_ode(dt, behavior.dy_dt, y_0, pendulum.prop())
+
+        # Convert resulting y vector back to state
+        state_1 = behavior.y_to_state(y_1)
+
+        # Update the pendulum
+        pendulum.set_state(state_1)
+    
+    @abstractmethod
+    def solve_ode(self, dt: float, dy_dt: Callable[[float, List[float], DoublePendulum.Properties], List[float]], y_0: List[float], prop: DoublePendulum.Properties):
         pass
+
+###################################################################################################################################################################################
+# TIME EVOLVER IMPLEMENTATIONS
+###################################################################################################################################################################################
+
+from scipy.integrate import odeint
+
+# TimeEvolver implementation that uses scipy.integrate.odeint to solve ODEs
+class ODEINTTimeEvolver(TimeEvolver):
+    def solve_ode(self, dt: float, dy_dt: Callable[[float, List[float], DoublePendulum.Properties], List[float]], y_0: List[float], prop: DoublePendulum.Properties):
+        return odeint(behavior.dy_dt, y_0, [0, dt], args = (pendulum.prop(),), tfirst = True)[1]
 
 ###################################################################################################################################################################################
 # BEHAVIOR IMPLEMENTATIONS
 ###################################################################################################################################################################################
 
-class SingleFixedPendulumBehavior:
+# Implementation of a DoublePendulumBehavior that acts as a single pendulum
+# (as if both arms were rigidly fixed together)
+class SingleFixedPendulumBehavior(DoublePendulumBehavior):
     def state_to_y(self, pendulum_state: DoublePendulum.State) -> List[float]:
+        # Verify that the current state is valid for a single pendulum
+        # (i.e. angles and angular velocities must be the same for both arms)
         assert (pendulum_state.theta1() == pendulum_state.theta2())
         assert (pendulum_state.theta1_dot() == pendulum_state.theta2_dot())
 
@@ -232,8 +268,7 @@ class SingleFixedPendulumBehavior:
             q_dot      = 0
         )
     
-    def dy_dt(self, t: float, y: List[float], args: Tuple[DoublePendulum.Properties]) -> List[float]:
-        prop = args
+    def dy_dt(self, t: float, y: List[float], prop: DoublePendulum.Properties) -> List[float]:
         L = prop.L() * 2 # We're treating a Double Pendulum like a single one, so L -> 2L
         d = prop.d() * 2 # We're treating a Double Pendulum like a single one, so d -> 2d (since d is proportional to L)
 
@@ -243,33 +278,6 @@ class SingleFixedPendulumBehavior:
         theta_dot_dot = g * L / (2 * (L**2/4 + d**2)) * sin(theta)
 
         return [theta_dot, theta_dot_dot]
-
-###################################################################################################################################################################################
-# TIME EVOLVER IMPLEMENTATIONS
-###################################################################################################################################################################################
-
-from scipy.integrate import odeint
-count = 0
-total_time = 0
-# TODO class documentation
-class ODEINTTimeEvolver:
-    def evolve(self, pendulum : DoublePendulum, behavior: DoublePendulumBehavior, dt: float):
-        state_0 = pendulum.state()
-        y_0 = behavior.state_to_y(state_0)
-
-        global count, total_time
-        count += 1
-        start = time()
-        y_1 = odeint(behavior.dy_dt, y_0, [0, dt], args = (pendulum.prop(),), tfirst = True)[1]
-        end = time()
-        total_time += (end - start)
-
-        if (count % 1000 == 0):
-            print("Count = %d, Solve time: %.10f\n" % (count, total_time))
-
-        state_1 = behavior.y_to_state(y_1)
-
-        pendulum.set_state(state_1)
 
 ###################################################################################################################################################################################
 # PENDULATION SIMULATION
@@ -294,6 +302,10 @@ class DoublePendulumSimulation:
         self.time_evolver().evolve(self.pendulum(), self.behavior(), dt)
         self.__elapsed_time += dt
 
+    def step_until(self, dt: float, t_final: float):
+        while (self.elapsed_time() < t_final):
+            self.step(dt)
+
 ###################################################################################################################################################################################
 # ANIMATORS
 ###################################################################################################################################################################################
@@ -306,15 +318,14 @@ import matplotlib.animation as animation
 
 # TODO class documentation
 class DoublePendulumAnimator:
-    def __init__(self, simulation: DoublePendulumSimulation, dt: float, plot_q: bool = False):
+    def __init__(self, simulation: DoublePendulumSimulation):
         self.__simulation = simulation
-        self.dt = dt
 
-        self.plot_q = plot_q
-
+    # TODO documentation
     def init(self):
+        # Pendulum subplot
         self.fig = plt.figure(figsize=(8, 8))
-        scale_margin_factor_x = 6
+        scale_margin_factor_x = 3
         scale_margin_factor_y = 3
         L = self.__simulation.pendulum().prop().L()
         scale_x = (-1 * scale_margin_factor_x * L, scale_margin_factor_x * L)
@@ -322,82 +333,82 @@ class DoublePendulumAnimator:
         self.ax_main = self.fig.add_subplot(211, aspect='equal', autoscale_on=False, xlim=scale_x, ylim=scale_y)
         self.ax_main.grid()
 
+        # Lines
         self.line_main, = self.ax_main.plot([], [], '-', lw=4)
         self.time_text_main = self.ax_main.text(0.02, 0.95, '', transform=self.ax_main.transAxes)
         self.energy_text = self.ax_main.text(0.02, 0.90, '', transform=self.ax_main.transAxes)
 
-        self.ax_q = self.fig.add_subplot(212, autoscale_on=True)
-        self.ax_q.set_xlabel('Time (seconds)')
-        self.ax_q.set_ylabel('q (metres)')
-        self.ax_q.grid()
+        # self.ax_q = self.fig.add_subplot(212, autoscale_on=True)
+        # self.ax_q.set_xlabel('Time (seconds)')
+        # self.ax_q.set_ylabel('q (metres)')
+        # self.ax_q.grid()
         
-        self.line_q, = self.ax_q.plot([], [])
+        # self.line_q, = self.ax_q.plot([], [])
 
         self.__reset()
 
+    # TODO documentation
     def __reset(self):
-        # TODO reset pendulum
-        
-        if (self.plot_q is True):
-            self.t = np.array([0])
-
-            self.theta1 = np.array(self.__simulation.pendulum().state().theta1())
-            self.theta2 = np.array(self.__simulation.pendulum().state().theta2())
-            self.q       = np.array(self.__simulation.pendulum().state().q())
+        # TODO reset simulation
 
         self.line_main.set_data([],[])
         self.time_text_main.set_text('')
         self.energy_text.set_text('')
 
-        self.line_q.set_data([],[])
+        #self.line_q.set_data([],[])
 
         # Required for matplotlib to update
-        return self.line_main, self.time_text_main, self.energy_text, self.line_q
+        return self.line_main, self.time_text_main, self.energy_text#, self.line_q
 
-    def __animate(self, i):
-        self.__simulation.step(self.dt)
+    # Internal function that performs a single animation step
+    def __animate(self, i: int, dt: float, draw_frequency: float):
+        # Simulate next step
+        self.__simulation.step(dt)
 
-        if (self.__simulation.elapsed_time() % 10): # TODO fix
-            # TODO shift to simulation
-            if (self.plot_q is True):
-                self.t = np.append(self.t, self.t[-1] + self.dt)
-                self.q = np.append(self.q, self.__simulation.pendulum().state().q())
-            
-            # Update pendulum position
+        elapsed_time_frames = int(self.__simulation.elapsed_time() / dt)
+        draw_frequency_frames = int(draw_frequency / dt)
+
+        print("Elapsed: %d, Draw Frequency: %d\n" % (elapsed_time_frames, draw_frequency_frames))
+
+        if (elapsed_time_frames % draw_frequency_frames == 0):
+            # Update pendulum position plot
             ((x_0, y_0), (x_1, y_1), (x_2, y_2)) = self.__simulation.pendulum().position_ends()
             x = [x_0, x_1, x_2]
             y = [y_0, y_1, y_2]
             self.line_main.set_data(x, y)
 
-            # Update elapsed time
+            # Update elapsed time text
             self.time_text_main.set_text('time = %.1f s' % self.__simulation.elapsed_time())
 
-            # Update energies
+            # Update energy text
             potential = self.__simulation.pendulum().energy_potential_grav()
             kinetic = self.__simulation.pendulum().energy_kinetic()
             total_energy = potential + kinetic
             self.energy_text.set_text('potential = %.3f, kinetic = %.3f, total = %.3f' % (potential, kinetic, total_energy))
 
-            # Update q plot
-            if (self.plot_q is True):
-                self.line_q.set_data(self.t, self.q)
-                self.ax_q.relim()
-                self.ax_q.autoscale_view(True,True,True)
+            # # Update q plot
+            # if (self.plot_q is True):
+            #     self.line_q.set_data(self.t, self.q)
+            #     self.ax_q.relim()
+            #     self.ax_q.autoscale_view(True,True,True)
 
             # Required for matplotlib to update
-            return self.line_main, self.time_text_main, self.energy_text, self.line_q
+            return self.line_main, self.time_text_main, self.energy_text#, self.line_q
         else:
-            # Don't do anything
+            # Don't do anything if we're not on an update cycle
             return []
 
-    def run(self, frames):
-        t0 = time()
-        self.__animate(0)
-        t1 = time()
-        #interval = (1000 * self.dt - (t1-t0)) / 100
+    # Runs and displays an animation of the pendulum
+    #
+    #   dt              = time step for the simulation (seconds)
+    #   draw_frequency  = frequency at which the animation will update (seconds)
+    #   t_final         = time at which the simulation will stop (seconds)
+    #
+    def run(self, dt: float, draw_frequency: float, t_final: float):
         interval = 0
+        frames = int(t_final / dt)
 
-        self.ani = animation.FuncAnimation(self.fig, self.__animate, frames=frames, interval=interval, blit=True, init_func=self.__reset, repeat=False)
+        self.ani = animation.FuncAnimation(self.fig, self.__animate, fargs = (dt, draw_frequency), frames=frames, interval=interval, blit=True, init_func=self.__reset, repeat=False)
 
         plt.show()
 
@@ -408,6 +419,8 @@ class DoublePendulumAnimator:
 from math import sqrt
 
 if __name__ == "__main__":
+
+    # Setup pendulum
     L = 1            # m
     m = 1            # kg
     d = sqrt(1/12)*L # m
@@ -421,13 +434,17 @@ if __name__ == "__main__":
         q_dot      = 0
     ))
 
+    # Choose behavior
     behavior = SingleFixedPendulumBehavior()
-    time_evolver = ODEINTTimeEvolver()
 
+    # Setup solvers
+    time_evolver = ODEINTTimeEvolver()
     simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver)
 
+    # Simulation parameters
     dt = 1.0 / 1000
 
-    animator = DoublePendulumAnimator(simulation, dt, plot_q = False)
+    # Run animation
+    animator = DoublePendulumAnimator(simulation)
     animator.init()
-    animator.run(10000)
+    animator.run(dt, 0.1, 10000)
