@@ -160,6 +160,7 @@ class DoublePendulum:
 
         # This is just the final formula for kinetic energy after a lot of re-arranging, so there's no good way to decompose it
         T = 1/2*m * (2*q_dot**2   +   q_dot*L*(3*cos(theta1)*theta1_dot + cos(theta2)*theta2_dot)   +   L**2*(1/4*(5*theta1_dot**2 + theta2_dot**2) + theta1_dot*theta2_dot*cos(theta1 - theta2))   +   d**2*(theta1_dot**2 + theta2_dot**2))
+        # T = 1/2*m * theta1_dot**2 * (L**2 + d**2)
 
         return T
 
@@ -232,14 +233,14 @@ class SingleFixedPendulumBehavior:
         )
     
     def dy_dt(self, t: float, y: List[float], args: Tuple[DoublePendulum.Properties]) -> List[float]:
-        (prop) = args
+        prop = args
         L = prop.L() * 2 # We're treating a Double Pendulum like a single one, so L -> 2L
-        d = prop.d()
+        d = prop.d() * 2 # We're treating a Double Pendulum like a single one, so d -> 2d (since d is proportional to L)
 
         theta = y[0]
         theta_dot = y[1]
 
-        theta_dot_dot = g * L / (2 * (L**2 + d**2)) * sin(theta)
+        theta_dot_dot = g * L / (2 * (L**2/4 + d**2)) * sin(theta)
 
         return [theta_dot, theta_dot_dot]
 
@@ -248,14 +249,24 @@ class SingleFixedPendulumBehavior:
 ###################################################################################################################################################################################
 
 from scipy.integrate import odeint
-
+count = 0
+total_time = 0
 # TODO class documentation
 class ODEINTTimeEvolver:
     def evolve(self, pendulum : DoublePendulum, behavior: DoublePendulumBehavior, dt: float):
         state_0 = pendulum.state()
         y_0 = behavior.state_to_y(state_0)
 
+        global count, total_time
+        count += 1
+        start = time()
         y_1 = odeint(behavior.dy_dt, y_0, [0, dt], args = (pendulum.prop(),), tfirst = True)[1]
+        end = time()
+        total_time += (end - start)
+
+        if (count % 1000 == 0):
+            print("Count = %d, Solve time: %.10f\n" % (count, total_time))
+
         state_1 = behavior.y_to_state(y_1)
 
         pendulum.set_state(state_1)
@@ -270,15 +281,18 @@ class DoublePendulumSimulation:
         self.__pendulum = pendulum
         self.__behavior = behavior
         self.__time_evolver = time_evolver
-    
+
+        self.__elapsed_time = 0
+
     def pendulum(self) -> DoublePendulum: return self.__pendulum
     def behavior(self) -> DoublePendulumBehavior: return self.__behavior
     def time_evolver(self) -> TimeEvolver: return self.__time_evolver
+    
+    def elapsed_time(self) -> float: return self.__elapsed_time
 
     def step(self, dt: float):
         self.time_evolver().evolve(self.pendulum(), self.behavior(), dt)
-        # TODO save output over time
-        # Track time elapsed
+        self.__elapsed_time += dt
 
 ###################################################################################################################################################################################
 # ANIMATORS
@@ -343,29 +357,38 @@ class DoublePendulumAnimator:
     def __animate(self, i):
         self.__simulation.step(self.dt)
 
-        if (self.plot_q is True):
-            self.t = np.append(self.t, self.t[-1] + self.dt)
-            self.q = np.append(self.q, self.__simulation.pendulum().state().q())
-        
-        ((x_0, y_0), (x_1, y_1), (x_2, y_2)) = self.__simulation.pendulum().position_ends()
-        x = [x_0, x_1, x_2]
-        y = [y_0, y_1, y_2]
-        self.line_main.set_data(x, y)
+        if (self.__simulation.elapsed_time() % 10): # TODO fix
+            # TODO shift to simulation
+            if (self.plot_q is True):
+                self.t = np.append(self.t, self.t[-1] + self.dt)
+                self.q = np.append(self.q, self.__simulation.pendulum().state().q())
+            
+            # Update pendulum position
+            ((x_0, y_0), (x_1, y_1), (x_2, y_2)) = self.__simulation.pendulum().position_ends()
+            x = [x_0, x_1, x_2]
+            y = [y_0, y_1, y_2]
+            self.line_main.set_data(x, y)
 
-        #self.time_text_main.set_text('time = %.1f s' % self.pendulum.time_elapsed)
+            # Update elapsed time
+            self.time_text_main.set_text('time = %.1f s' % self.__simulation.elapsed_time())
 
-        potential = self.__simulation.pendulum().energy_potential_grav()
-        kinetic = self.__simulation.pendulum().energy_kinetic()
-        total_energy = potential + kinetic
-        self.energy_text.set_text('potential = %.3f, kinetic = %.3f, total = %.3f' % (potential, kinetic, total_energy))
+            # Update energies
+            potential = self.__simulation.pendulum().energy_potential_grav()
+            kinetic = self.__simulation.pendulum().energy_kinetic()
+            total_energy = potential + kinetic
+            self.energy_text.set_text('potential = %.3f, kinetic = %.3f, total = %.3f' % (potential, kinetic, total_energy))
 
-        if (self.plot_q is True):
-            self.line_q.set_data(self.t, self.q)
-            self.ax_q.relim()
-            self.ax_q.autoscale_view(True,True,True)
+            # Update q plot
+            if (self.plot_q is True):
+                self.line_q.set_data(self.t, self.q)
+                self.ax_q.relim()
+                self.ax_q.autoscale_view(True,True,True)
 
-        # Required for matplotlib to update
-        return self.line_main, self.time_text_main, self.energy_text, self.line_q
+            # Required for matplotlib to update
+            return self.line_main, self.time_text_main, self.energy_text, self.line_q
+        else:
+            # Don't do anything
+            return []
 
     def run(self, frames):
         t0 = time()
@@ -385,7 +408,7 @@ class DoublePendulumAnimator:
 from math import sqrt
 
 if __name__ == "__main__":
-    L = 2            # m
+    L = 1            # m
     m = 1            # kg
     d = sqrt(1/12)*L # m
 
@@ -403,7 +426,7 @@ if __name__ == "__main__":
 
     simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver)
 
-    dt = 1.0 / 50
+    dt = 1.0 / 1000
 
     animator = DoublePendulumAnimator(simulation, dt, plot_q = False)
     animator.init()
