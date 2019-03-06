@@ -255,7 +255,7 @@ class ODEINTTimeEvolver:
         state_0 = pendulum.state()
         y_0 = behavior.state_to_y(state_0)
 
-        y_1 = odeint(behavior.dy_dt, y_0, [0, dt], args = (pendulum.prop()), tfirst = True)[1]
+        y_1 = odeint(behavior.dy_dt, y_0, [0, dt], args = (pendulum.prop(),), tfirst = True)[1]
         state_1 = behavior.y_to_state(y_1)
 
         pendulum.set_state(state_1)
@@ -371,7 +371,8 @@ class DoublePendulumAnimator:
         t0 = time()
         self.__animate(0)
         t1 = time()
-        interval = (1000 * self.dt - (t1-t0)) / 1
+        #interval = (1000 * self.dt - (t1-t0)) / 100
+        interval = 0
 
         self.ani = animation.FuncAnimation(self.fig, self.__animate, frames=frames, interval=interval, blit=True, init_func=self.__reset, repeat=False)
 
@@ -389,8 +390,8 @@ if __name__ == "__main__":
     d = sqrt(1/12)*L # m
 
     pendulum = DoublePendulum(DoublePendulum.Properties(L, m, d), DoublePendulum.State(
-        theta1     = 0,
-        theta2     = 0,
+        theta1     = pi/2,
+        theta2     = pi/2,
         q          = 0,
         theta1_dot = 0,
         theta2_dot = 0,
@@ -402,8 +403,8 @@ if __name__ == "__main__":
 
     simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver)
 
-    dt = 1.0 / 100
+    dt = 1.0 / 50
 
-    animator = DoublePendulumAnimator(simulation, dt, plot_q = True)
+    animator = DoublePendulumAnimator(simulation, dt, plot_q = False)
     animator.init()
     animator.run(10000)
