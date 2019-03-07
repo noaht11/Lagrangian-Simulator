@@ -9,7 +9,7 @@ from scipy.constants import g
 ###################################################################################################################################################################################
 
 # Converts an angle in radians to the equivalent angle in radians constrained between -pi and pi, where 0 remains at angle 0
-def __neg_pi_to_pi(theta: float) -> float:
+def neg_pi_to_pi(theta: float) -> float:
     modded = theta % (2*pi)
     return modded + (modded > pi) * (-2*pi)
 
@@ -86,7 +86,15 @@ class DoublePendulum:
 
     # Sets the current state to new_state
     def set_state(self, new_state: State):
-        self.__state = new_state
+        adj_state = DoublePendulum.State(
+            neg_pi_to_pi(new_state.theta1()),
+            neg_pi_to_pi(new_state.theta2()),
+            new_state.q(),
+            new_state.theta1_dot(),
+            new_state.theta2_dot(),
+            new_state.q_dot()
+        )
+        self.__state = adj_state
 
     # Calculates and returns the positions of the endpoints of the arms of the pendulum
     #
@@ -193,12 +201,12 @@ class DoublePendulumBehavior(ABC):
     #
     # The return value of this method will be passed to dstate_dt
     @abstractmethod
-    def state_to_y(self, pendulum_state: DoublePendulum.State) -> List[float]:
+    def state_to_y(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
         pass
     
     # Converts an internal state representation (y) back into a DoublePendulum.State
     @abstractmethod
-    def y_to_state(self, y: List[float]) -> DoublePendulum.State:
+    def y_to_state(self, y: List[float], prop: DoublePendulum.Properties) -> DoublePendulum.State:
         pass
     
     # Core mathematical description of this behavior
@@ -217,13 +225,13 @@ class TimeEvolver(ABC):
     def evolve(self, pendulum : DoublePendulum, behavior: DoublePendulumBehavior, dt: float):
         # Convert the current state to y vector
         state_0 = pendulum.state()
-        y_0 = behavior.state_to_y(state_0)
+        y_0 = behavior.state_to_y(state_0, pendulum.prop())
 
         # Solve the ODE
         y_1 = self.solve_ode(dt, behavior.dy_dt, y_0, pendulum.prop())
 
         # Convert resulting y vector back to state
-        state_1 = behavior.y_to_state(y_1)
+        state_1 = behavior.y_to_state(y_1, pendulum.prop())
 
         # Update the pendulum
         pendulum.set_state(state_1)
@@ -236,6 +244,7 @@ class TimeEvolver(ABC):
 # TIME EVOLVER IMPLEMENTATIONS
 ###################################################################################################################################################################################
 
+import numpy as np
 from scipy.integrate import odeint
 
 # TimeEvolver implementation that uses scipy.integrate.odeint to solve ODEs
@@ -247,21 +256,37 @@ class ODEINTTimeEvolver(TimeEvolver):
 # BEHAVIOR IMPLEMENTATIONS
 ###################################################################################################################################################################################
 
-# Implementation of a DoublePendulumBehavior that acts as a single pendulum
-# (as if both arms were rigidly fixed together)
+# Implementation of a DoublePendulumBehavior that acts as a single fixed pendulum:
+#
+# Single:
+#   => theta1     = theta2      = theta      (we'll use theta to refer to either angle)
+#   => theta1_dot = theta2_dot  = theta_dot  (we'll use theta_dot to refer to either angular velocity)
+#
+# Fixed:
+#   => q = 0
+#   => q_dot = 0
+#
+# The single fixed pendulum is easiest to solve in the following state space (y vector):
+#   [
+#     theta,
+#     theta_dot
+#   ]
+#
 class SingleFixedPendulumBehavior(DoublePendulumBehavior):
 
-    def state_to_y(self, pendulum_state: DoublePendulum.State) -> List[float]:
+    def state_to_y(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
         # Verify that the current state is valid for a single pendulum
         # (i.e. angles and angular velocities must be the same for both arms)
-        assert (pendulum_state.theta1() == pendulum_state.theta2())
-        assert (pendulum_state.theta1_dot() == pendulum_state.theta2_dot())
-        assert (pendulum_state.q() == 0)
-        assert (pendulum_state.q_dot() == 0)
+        # TODO check for equivalent angles
+        # assert (state.theta1() == state.theta2())
+        # assert (state.theta1_dot() == state.theta2_dot())
+        assert (state.q() == 0)
+        assert (state.q_dot() == 0)
 
-        return [pendulum_state.theta1(), pendulum_state.theta1_dot()]
+        # Construct y vector
+        return [state.theta1(), state.theta1_dot()]
     
-    def y_to_state(self, y: List[float]) -> DoublePendulum.State:
+    def y_to_state(self, y: List[float], prop: DoublePendulum.Properties) -> DoublePendulum.State:
         return DoublePendulum.State(
             theta1     = y[0],
             theta2     = y[0],
@@ -282,27 +307,151 @@ class SingleFixedPendulumBehavior(DoublePendulumBehavior):
 
         return [theta_dot, theta_dot_dot]
 
-# Implementation of DoublePendulumBehavior that acts as a regular double pendulum with a fixed pivot point
+# Implementation of DoublePendulumBehavior that acts as a regular double pendulum with a fixed pivot point.
+#
+# Double:
+#   => theta1 and theta2 are independent
+#   => theta1_dot and theta2_dot are independent
+#
+# Fixed:
+#   => q = 0
+#   => q_dot = 0
+#
+# The double fixed pendulum is easiest to solve in the following state space (y vector):
+#   [
+#     theta1,
+#     theta2,
+#     p_theta1,
+#     p_theta2
+#   ]
+#
+#   where p_theta1 is the generalized momentum for theta1 (obtained from the Lagrangian)
+#         p_theta2 is the generalized momentum for theta2 (obtained from the Lagrangian)
+#
+# Note: The factor of 1/2*m that is present in all generalized momenta terms is ignored here since it is constant
+#       and does not affect the differential equations
+#
+# See https://en.wikipedia.org/wiki/Double_pendulum for more information
+#
 class DoubleFixedPendulumBehavior(DoublePendulumBehavior):
-    def state_to_y(self, pendulum_state: DoublePendulum.State) -> List[float]:
+    
+    # There is a set of two linear equations (2 knowns, 2 unknowns) that relate the following four quantities:
+    #
+    #   theta1_dot
+    #   theta2_dot
+    #   p_theta1
+    #   p_theta2
+    #
+    # The coefficients for these equations are functions of theta1, theta2, L and d and are returned by this method
+    # in the form of a 2x2 matrix, A, that satsifies the following equation
+    #  _        _   _            _         _          _
+    # |    A     | |  theta1_dot  |   =   |  p_theta1  |
+    # |_        _| |_ theta2_dot _|       |_ p_theta2 _|
+    #
+    def __theta_dot_p_theta_matrix(theta1: float, theta2: float, L: float, d: float) -> List[List[float]]:
+        return [
+            [L**2*5/2 + 2*d**2, L**2*cos(theta1 - theta2)],
+            [L**2*cos(theta1 - theta2), L**2*1/2 + 2*d**2]
+        ]
+
+    # Transforms a vector of
+    #    _            _ 
+    #   |  theta1_dot  |
+    #   |_ theta2_dot _|
+    #
+    # to a vector
+    #    _          _
+    #   |  p_theta1  |
+    #   |_ p_theta2 _|
+    #
+    # using theta1, theta2, L and d
+    #
+    def __theta_dot_to_p_theta(theta_dot: List[float], theta1: float, theta2: float, L: float, d: float) -> List[float]:
+        matrix = DoubleFixedPendulumBehavior.__theta_dot_p_theta_matrix(theta1, theta2, L, d)
+        return np.matmul(matrix, theta_dot)
+
+    # Transforms a vector of
+    #    _          _ 
+    #   |  p_theta1  |
+    #   |_ p_theta2 _|
+    #
+    # to a vector
+    #    _            _
+    #   |  theta1_dot  |
+    #   |_ theta2_dot _|
+    #
+    # using theta1, theta2, L and d
+    #
+    def __p_theta_to_theta_dot(p_theta: List[float], theta1: float, theta2: float, L: float, d: float) -> List[float]:
+        matrix = DoubleFixedPendulumBehavior.__theta_dot_p_theta_matrix(theta1, theta2, L, d)
+        matrix_inv = np.linalg.inv(matrix)
+        return np.matmul(matrix_inv, p_theta)
+
+    def state_to_y(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
         # Verify that the current state is valid (the pivot point must be fixed at 0)
-        assert (pendulum_state.q() == 0)
-        assert (pendulum_state.q_dot() == 0)
+        assert (state.q() == 0)
+        assert (state.q_dot() == 0)
 
-        # Double pendulum is easier to solve in the following state space:
-        # [
-        #   theta1,
-        #   theta2,
-        #   p_theta1,
-        #   p_theta2
-        # ]
+        # Construct y vector
+        L = prop.L()
+        m = prop.m()
+        d = prop.d()
 
+        theta1 = state.theta1()
+        theta2 = state.theta2()
+        theta1_dot = state.theta1_dot()
+        theta2_dot = state.theta2_dot()
+
+        p_theta = DoubleFixedPendulumBehavior.__theta_dot_to_p_theta([theta1_dot, theta2_dot], theta1, theta2, L, d)
+
+        return [theta1, theta2, p_theta[0], p_theta[1]]
+    
+    def y_to_state(self, y: List[float], prop: DoublePendulum.Properties) -> DoublePendulum.State:
+        L = prop.L()
+        m = prop.m()
+        d = prop.d()
+
+        theta1 = y[0]
+        theta2 = y[1]
+        p_theta1 = y[2]
+        p_theta2 = y[3]
+
+        theta_dot = DoubleFixedPendulumBehavior.__theta_dot_to_p_theta([p_theta1, p_theta2], theta1, theta2, L, d)
+
+        return DoublePendulum.State(
+            theta1     = theta1,
+            theta2     = theta2,
+            q          = 0,
+            theta1_dot = theta_dot[0],
+            theta2_dot = theta_dot[1],
+            q_dot      = 0
+        )
+    
+    def dy_dt(self, t: float, y: List[float], prop: DoublePendulum.Properties) -> List[float]:
+        L = prop.L()
+        d = prop.d()
+
+        theta1 = y[0]
+        theta2 = y[1]
+        p_theta1 = y[2]
+        p_theta2 = y[3]
+
+        print("theta1 = %.5f\ntheta2 = %.5f\n\n" % (theta1, theta2))
+
+        theta_dot = DoubleFixedPendulumBehavior.__p_theta_to_theta_dot([p_theta1, p_theta2], theta1, theta2, L, d)
+        theta1_dot = theta_dot[0]
+        theta2_dot = theta_dot[1]
+
+        p_theta1_dot = -1*L**2*theta1_dot*theta2_dot*sin(theta1 - theta2) + 3*g*L*sin(theta1)
+        p_theta2_dot =    L**2*theta1_dot*theta2_dot*sin(theta1 - theta2) +   g*L*sin(theta2)
+
+        return [theta1_dot, theta2_dot, p_theta1_dot, p_theta2_dot]
 
 ###################################################################################################################################################################################
 # PENDULATION SIMULATION
 ###################################################################################################################################################################################
 
-# TODO class documentation
+# Class that manages the evolution of the double pendulum over time
 class DoublePendulumSimulation:
     def __init__(self, pendulum: DoublePendulum, behavior: DoublePendulumBehavior, time_evolver: TimeEvolver):
         self.__pendulum = pendulum
@@ -337,7 +486,6 @@ class DoublePendulumSimulation:
 
 from time import time
 
-import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
@@ -442,8 +590,8 @@ if __name__ == "__main__":
     d = sqrt(1/12)*L # m
 
     pendulum = DoublePendulum(DoublePendulum.Properties(L, m, d), DoublePendulum.State(
-        theta1     = pi/4,
-        theta2     = pi/4,
+        theta1     = pi/10,
+        theta2     = 0,
         q          = 0,
         theta1_dot = 0,
         theta2_dot = 0,
@@ -451,7 +599,7 @@ if __name__ == "__main__":
     ))
 
     # Choose behavior
-    behavior = SingleFixedPendulumBehavior()
+    behavior = DoubleFixedPendulumBehavior()
 
     # Setup solvers
     time_evolver = ODEINTTimeEvolver()
