@@ -310,91 +310,103 @@ class SingleFixedPendulumBehavior(DoublePendulumBehavior):
 
         return [theta_dot, theta_dot_dot]
 
-# Implementation of DoublePendulumBehavior that acts as a regular double pendulum with a fixed pivot point.
+# Implementation of DoublePendulumBehavior that acts as a regular double pendulum with a pivot point free to move in the horizontal direction.
 #
-# Double:
 #   => theta1 and theta2 are independent
 #   => theta1_dot and theta2_dot are independent
+#   => q is not noecessarily 0
+#   => q_dot is not necessarily 0
 #
-# Fixed:
-#   => q = 0
-#   => q_dot = 0
-#
-# The double fixed pendulum is easiest to solve in the following state space (y vector):
+# The double pendulum is easiest to solve in the following state space (y vector):
 #   [
 #     theta1,
 #     theta2,
+#     q,
 #     p_theta1,
-#     p_theta2
+#     p_theta2,
+#     p_q
 #   ]
 #
 #   where p_theta1 is the generalized momentum for theta1 (obtained from the Lagrangian)
 #         p_theta2 is the generalized momentum for theta2 (obtained from the Lagrangian)
+#         p_q      is the generalized momentum for q      (obtained from the Lagrangian)
 #
 # Note: The factor of 1/2*m that is present in all generalized momenta terms is ignored here since it is constant
 #       and does not affect the differential equations
 #
 # See https://en.wikipedia.org/wiki/Double_pendulum for more information
 #
-class DoubleFixedPendulumBehavior(DoublePendulumBehavior):
+class DoublePendulumBehavior(DoublePendulumBehavior):
     
-    # There is a set of two linear equations (2 knowns, 2 unknowns) that relate the following four quantities:
+    # TODO docs
+    def __init__(self, q_forced: bool = False, func_q_force: Callable[[float], float] = None, func_q_dot_force: Callable[[float], float] = None):
+        self.__q_forced = q_forced
+        self.__func_q_force = func_q_force
+        self.__func_q_dot_force = func_q_dot_force
+
+    # There is a set of 3 linear equations (3 knowns, 3 unknowns) that relate the following four quantities:
     #
     #   theta1_dot
     #   theta2_dot
+    #   q_dot
     #   p_theta1
     #   p_theta2
+    #   p_q
     #
     # The coefficients for these equations are functions of theta1, theta2, L and d and are returned by this method
     # in the form of a 2x2 matrix, A, that satsifies the following equation
     #  _        _   _            _         _          _
-    # |    A     | |  theta1_dot  |   =   |  p_theta1  |
-    # |_        _| |_ theta2_dot _|       |_ p_theta2 _|
+    # |          | |  theta1_dot  |   =   |  p_theta1  |
+    # |    A     | |  theta2_dot  |       |  p_theta2  |
+    # |_        _| |_ q_dot      _|       |_ p_q      _|
     #
-    def __theta_dot_p_theta_matrix(theta1: float, theta2: float, L: float, d: float) -> List[List[float]]:
+    def __coord_dot_p_coord_matrix(self, theta1: float, theta2: float, L: float, d: float) -> List[List[float]]:
         return [
-            [L**2*5/2 + 2*d**2, L**2*cos(theta1 - theta2)],
-            [L**2*cos(theta1 - theta2), L**2*1/2 + 2*d**2]
+            [ L**2*5/2 + 2*d**2         , L**2*cos(theta1 - theta2) , 3*L*cos(theta1) ],
+            [ L**2*cos(theta1 - theta2) , L**2*1/2 + 2*d**2         , L*cos(theta2)   ],
+            [ 3*L*cos(theta1)           , L*cos(theta2)             , 4               ]
         ]
+
+    def __p_coord_coord_dot_matrix(self, theta1: float, theta2:float, L: float, d: float) -> List[List[float]]:
+        return np.linalg.inv(self.__coord_dot_p_coord_matrix(theta1, theta2, L, d))
 
     # Transforms a vector of
     #    _            _ 
     #   |  theta1_dot  |
-    #   |_ theta2_dot _|
+    #   |  theta2_dot  |
+    #   |_ q_dot      _|
     #
     # to a vector
     #    _          _
     #   |  p_theta1  |
-    #   |_ p_theta2 _|
+    #   |  p_theta2  |
+    #   |_ p_q      _|
     #
     # using theta1, theta2, L and d
     #
-    def __theta_dot_to_p_theta(theta_dot: List[float], theta1: float, theta2: float, L: float, d: float) -> List[float]:
-        matrix = DoubleFixedPendulumBehavior.__theta_dot_p_theta_matrix(theta1, theta2, L, d)
-        return np.matmul(matrix, theta_dot)
+    def __coord_dot_to_p_coord(self, coord_dot: List[float], theta1: float, theta2: float, L: float, d: float) -> List[float]:
+        matrix = self.__coord_dot_p_coord_matrix(theta1, theta2, L, d)
+        return np.matmul(matrix, coord_dot)
 
     # Transforms a vector of
     #    _          _ 
     #   |  p_theta1  |
-    #   |_ p_theta2 _|
+    #   |  p_theta2  |
+    #   |_ p_q      _|
     #
     # to a vector
     #    _            _
     #   |  theta1_dot  |
-    #   |_ theta2_dot _|
+    #   |  theta2_dot  |
+    #   |_ q_dot      _|
     #
     # using theta1, theta2, L and d
     #
-    def __p_theta_to_theta_dot(p_theta: List[float], theta1: float, theta2: float, L: float, d: float) -> List[float]:
-        matrix = DoubleFixedPendulumBehavior.__theta_dot_p_theta_matrix(theta1, theta2, L, d)
-        matrix_inv = np.linalg.inv(matrix)
-        return np.matmul(matrix_inv, p_theta)
+    def __p_coord_to_coord_dot(self, p_coord: List[float], theta1: float, theta2: float, L: float, d: float) -> List[float]:
+        matrix = self.__p_coord_coord_dot_matrix(theta1, theta2, L, d)
+        return np.matmul(matrix, p_coord)
 
     def state_to_y(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
-        # Verify that the current state is valid (the pivot point must be fixed at 0)
-        assert (state.q() == 0)
-        assert (state.q_dot() == 0)
-
         # Construct y vector
         L = prop.L()
         m = prop.m()
@@ -402,12 +414,14 @@ class DoubleFixedPendulumBehavior(DoublePendulumBehavior):
 
         theta1 = state.theta1()
         theta2 = state.theta2()
+        q      = state.q()
         theta1_dot = state.theta1_dot()
         theta2_dot = state.theta2_dot()
+        q_dot      = state.q_dot()
 
-        p_theta = DoubleFixedPendulumBehavior.__theta_dot_to_p_theta([theta1_dot, theta2_dot], theta1, theta2, L, d)
+        p_coord = DoublePendulumBehavior.__coord_dot_to_p_coord([theta1_dot, theta2_dot, q_dot], theta1, theta2, L, d)
 
-        return [theta1, theta2, p_theta[0], p_theta[1]]
+        return [theta1, theta2, q, p_coord[0], p_coord[1], p_coord[2]]
     
     def y_to_state(self, y: List[float], prop: DoublePendulum.Properties) -> DoublePendulum.State:
         L = prop.L()
@@ -416,18 +430,20 @@ class DoubleFixedPendulumBehavior(DoublePendulumBehavior):
 
         theta1 = y[0]
         theta2 = y[1]
-        p_theta1 = y[2]
-        p_theta2 = y[3]
+        q      = y[2]
+        p_theta1 = y[3]
+        p_theta2 = y[4]
+        p_q      = y[5]
 
-        theta_dot = DoubleFixedPendulumBehavior.__p_theta_to_theta_dot([p_theta1, p_theta2], theta1, theta2, L, d)
+        coord_dot = self.__p_coord_to_coord_dot([p_theta1, p_theta2, p_q], theta1, theta2, L, d)
 
         return DoublePendulum.State(
             theta1     = theta1,
             theta2     = theta2,
-            q          = 0,
-            theta1_dot = theta_dot[0],
-            theta2_dot = theta_dot[1],
-            q_dot      = 0
+            q          = q,
+            theta1_dot = coord_dot[0],
+            theta2_dot = coord_dot[1],
+            q_dot      = coord_dot[2]
         )
     
     def dy_dt(self, t: float, y: List[float], prop: DoublePendulum.Properties) -> List[float]:
@@ -436,17 +452,25 @@ class DoubleFixedPendulumBehavior(DoublePendulumBehavior):
 
         theta1 = y[0]
         theta2 = y[1]
-        p_theta1 = y[2]
-        p_theta2 = y[3]
+        q      = y[2]
+        p_theta1 = y[3]
+        p_theta2 = y[4]
+        p_q      = y[5]
 
-        theta_dot = DoubleFixedPendulumBehavior.__p_theta_to_theta_dot([p_theta1, p_theta2], theta1, theta2, L, d)
-        theta1_dot = theta_dot[0]
-        theta2_dot = theta_dot[1]
+        assert(q == self.__func_q_force(t))
+
+        coord_dot = self.__p_coord_to_coord_dot([p_theta1, p_theta2, p_q], theta1, theta2, L, d)
+        theta1_dot = coord_dot[0]
+        theta2_dot = coord_dot[1]
+        q_dot      = coord_dot[2]
+
+        assert(q_dot == self.__func_q_dot_force(t))
 
         p_theta1_dot = -1*L**2*theta1_dot*theta2_dot*sin(theta1 - theta2) + 3*g*L*sin(theta1)
         p_theta2_dot =    L**2*theta1_dot*theta2_dot*sin(theta1 - theta2) +   g*L*sin(theta2)
+        p_q_dot      = 0
 
-        return [theta1_dot, theta2_dot, p_theta1_dot, p_theta2_dot]
+        return [theta1_dot, theta2_dot, q_dot, p_theta1_dot, p_theta2_dot, p_q_dot]
 
 ###################################################################################################################################################################################
 # PENDULATION SIMULATION
@@ -600,7 +624,7 @@ if __name__ == "__main__":
     ))
 
     # Choose behavior
-    behavior = DoubleFixedPendulumBehavior()
+    behavior = DoublePendulumBehavior(fixed_q = False)
 
     # Setup solvers
     time_evolver = ODEINTTimeEvolver()
