@@ -51,6 +51,9 @@ class DoublePendulum:
         def theta1_dot(self) -> float : return self.__theta1_dot
         def theta2_dot(self) -> float : return self.__theta2_dot
         def q_dot(self)      -> float : return self.__q_dot
+        
+        def __str__(self):
+                return str([self.theta1(), self.theta2(), self.q(), self.theta1_dot(), self.theta2_dot(), self.q_dot()])
     
     # Immutable class representing the mechanical properties of a double pendulum.
     class Properties:
@@ -416,7 +419,7 @@ class DoubleFixedPendulumBehavior(DoublePendulumBehavior):
         p_theta1 = y[2]
         p_theta2 = y[3]
 
-        theta_dot = DoubleFixedPendulumBehavior.__theta_dot_to_p_theta([p_theta1, p_theta2], theta1, theta2, L, d)
+        theta_dot = DoubleFixedPendulumBehavior.__p_theta_to_theta_dot([p_theta1, p_theta2], theta1, theta2, L, d)
 
         return DoublePendulum.State(
             theta1     = theta1,
@@ -435,8 +438,6 @@ class DoubleFixedPendulumBehavior(DoublePendulumBehavior):
         theta2 = y[1]
         p_theta1 = y[2]
         p_theta2 = y[3]
-
-        print("theta1 = %.5f\ntheta2 = %.5f\n\n" % (theta1, theta2))
 
         theta_dot = DoubleFixedPendulumBehavior.__p_theta_to_theta_dot([p_theta1, p_theta2], theta1, theta2, L, d)
         theta1_dot = theta_dot[0]
@@ -534,9 +535,9 @@ class DoublePendulumAnimator:
         return self.line_main, self.time_text_main, self.energy_text#, self.line_q
 
     # Internal function that performs a single animation step
-    def __animate(self, i: int, dt: float, draw_frequency: float):
+    def __animate(self, i: int, dt: float, draw_dt: float):
         # Simulate next step
-        self.__simulation.step_for(dt, draw_frequency)
+        self.__simulation.step_for(dt, draw_dt)
 
         # Update pendulum position plot
         ((x_0, y_0), (x_1, y_1), (x_2, y_2)) = self.__simulation.pendulum().position_ends()
@@ -564,15 +565,15 @@ class DoublePendulumAnimator:
 
     # Runs and displays an animation of the pendulum
     #
-    #   dt              = time step for the simulation (seconds)
-    #   draw_frequency  = frequency at which the animation will update (seconds)
-    #   t_final         = time at which the simulation will stop (seconds)
+    #   dt       = time step for the simulation (seconds)
+    #   draw_dt  = time between animation frame updates (seconds)
+    #   t_final  = time at which the simulation will stop (seconds)
     #
-    def run(self, dt: float, draw_frequency: float, t_final: float):
-        interval = draw_frequency * 1000 # interval is in milliseconds
+    def run(self, dt: float, draw_dt: float, t_final: float):
+        interval = draw_dt * 1000 # interval is in milliseconds
         frames = int(t_final / dt)
 
-        self.ani = animation.FuncAnimation(self.fig, self.__animate, fargs = (dt, draw_frequency), frames=frames, interval=interval, blit=True, init_func=self.__reset, repeat=False)
+        self.ani = animation.FuncAnimation(self.fig, self.__animate, fargs = (dt, draw_dt), frames=frames, interval=interval, blit=True, init_func=self.__reset, repeat=False)
 
         plt.show()
 
@@ -586,7 +587,7 @@ if __name__ == "__main__":
 
     # Setup pendulum
     L = 1            # m
-    m = 1            # kg
+    m = 2            # kg
     d = sqrt(1/12)*L # m
 
     pendulum = DoublePendulum(DoublePendulum.Properties(L, m, d), DoublePendulum.State(
@@ -606,9 +607,10 @@ if __name__ == "__main__":
     simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver)
 
     # Simulation parameters
-    dt = 1.0 / 1000
+    dt = 1.0 / 500
+    draw_dt = 1/100
 
-    # Run animation
+    # Run animation`
     animator = DoublePendulumAnimator(simulation)
     animator.init()
-    animator.run(dt, 1/50, 10000)
+    animator.run(dt, draw_dt, 1000)

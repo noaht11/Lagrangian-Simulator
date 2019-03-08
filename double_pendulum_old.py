@@ -241,6 +241,8 @@ class ForcedDoublePendulum:
         m         = self.m
 
         (theta_1, theta_2, q, p_theta_1, p_theta_2, p_q) = state
+        
+        # print("\n\ntheta1 = %.5f\ntheta2 = %.5f\n" % (theta_1, theta_2))
 
         A         = self.force_a
         B         = self.force_b
@@ -250,6 +252,11 @@ class ForcedDoublePendulum:
         p_theta_1_dot = 1/2*m * (-3*q_dot*L*theta_1_dot*sin(theta_1)   -   L**2*theta_1_dot*theta_2_dot*sin(theta_1 - theta_2)   +   (3*g*L + A)*sin(theta_1))
         p_theta_2_dot = 1/2*m * (-1*q_dot*L*theta_2_dot*sin(theta_2)   +   L**2*theta_1_dot*theta_2_dot*sin(theta_1 - theta_2)   +   (1*g*L + B)*sin(theta_2))
         p_q_dot       = 0
+
+        # print("  theta1_dot = %.6f" % p_theta_1_dot)
+        # print("  theta2_dot = %.6f" % p_theta_2_dot)
+        # print("  p_theta1_dot = %.6f" % p_theta_1_dot)
+        # print("  p_theta2_dot = %.6f" % p_theta_2_dot)
 
         state_dot = np.array([
             theta_1_dot,
@@ -264,6 +271,7 @@ class ForcedDoublePendulum:
 
     def step(self, dt):
         ode_result = odeint(self.dstate_dt, self.__state, [0, dt], tfirst = True)[1]
+        print(ode_result)
         self.time_elapsed += dt
         # self.solver.step()
         # ode_result = self.solver.y
@@ -357,24 +365,24 @@ class PendulumAnimator:
 #######################################################################################################################################################################################
 
 if __name__ == "__main__":
-    L = 2 # m
-    A = 10
-    B = 10
+    L = 1 # m
+    A = 0
+    B = 0
     d = sqrt(1/12)*L
-    m = 1 # kg
+    m = 2 # kg
 
-    dt = 1.0 / 100
+    dt = 1.0 / 50
 
     pendulum = ForcedDoublePendulum(L, m, d, A, B, [
-        pi/20, # theta_1
-        pi/20, # theta_2
+        pi/10, # theta_1
+        0, # theta_2
         0, # q
         0, # p_theta_1
         0, # p_theta_2
         0, # p_q
-    ], fixed_q = False)
+    ], fixed_q = True)
 
-    animator = PendulumAnimator(pendulum, dt, plot_q = True)
+    animator = PendulumAnimator(pendulum, dt, plot_q = False)
     animator.init()
-    animator.run(10000)
+    animator.run(3)
     
