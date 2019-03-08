@@ -591,8 +591,8 @@ if __name__ == "__main__":
     d = sqrt(1/12)*L # m
 
     pendulum = DoublePendulum(DoublePendulum.Properties(L, m, d), DoublePendulum.State(
-        theta1     = pi/10,
-        theta2     = 0,
+        theta1     = 0,
+        theta2     = pi/100,
         q          = 0,
         theta1_dot = 0,
         theta2_dot = 0,
@@ -607,10 +607,10 @@ if __name__ == "__main__":
     simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver)
 
     # Simulation parameters
-    dt = 1.0 / 500
-    draw_dt = 1/100
+    dt = 1.0 / 50
+    draw_dt = 1/50
 
-    # Run animation`
+    # Run animation
     animator = DoublePendulumAnimator(simulation)
     animator.init()
     animator.run(dt, draw_dt, 1000)
