@@ -297,6 +297,14 @@ class ODEINTTimeEvolver(TimeEvolver):
 # POTENTIALS
 ###################################################################################################################################################################################
 
+class ZeroPotential(Potential):
+
+    def U(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+        return [0,0,0]
+    
+    def dU_dcoord(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+        return [0,0,0]
+
 class GravitationalPotential(Potential):
     # Fundamental constants:
     g = scipy.constants.g
@@ -335,7 +343,7 @@ class GravitationalPotential(Potential):
 # TODO document
 class FixedQPotential(Potential):
 
-    def __init(self, q: float = 0):
+    def __init__(self, q: float = 0):
         self.__q = q
 
     def U(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
@@ -474,11 +482,11 @@ class ForcedDoublePendulumBehavior(BaseDoublePendulumBehavior):
     # |_        _| |_ q_dot      _|       |_ p_q      _|
     #
     def __coord_dot_p_coord_matrix(self, theta1: float, theta2: float, L: float, m: float, d: float) -> List[List[float]]:
-        return [
+        return np.array([
             [ L**2*5/2 + 2*d**2         , L**2*cos(theta1 - theta2) , 3*L*cos(theta1) ],
             [ L**2*cos(theta1 - theta2) , L**2*1/2 + 2*d**2         , L*cos(theta2)   ],
             [ 3*L*cos(theta1)           , L*cos(theta2)             , 4               ]
-        ] * 1/2*m
+        ]) * 1/2*m
 
     def __p_coord_coord_dot_matrix(self, theta1: float, theta2:float, L: float, m: float, d: float) -> List[List[float]]:
         return np.linalg.inv(self.__coord_dot_p_coord_matrix(theta1, theta2, L, m, d))
@@ -581,7 +589,7 @@ class ForcedDoublePendulumBehavior(BaseDoublePendulumBehavior):
         state = DoublePendulum.State(theta1, theta2, q, theta1_dot, theta2_dot, q_dot)
 
         # Calculate the time derivatives of the generalized momenta
-        gravity_terms = DoublePendulumBehavior.gravity().dU_dcoord(state, prop)
+        gravity_terms = self.gravity().dU_dcoord(state, prop)
         forcing_terms = self.__forcing_potential.dU_dcoord(state, prop)
 
         p_theta1_dot = 1/2*m * (-1*L**2*theta1_dot*theta2_dot*sin(theta1 - theta2)) + gravity_terms[0] + forcing_terms[0]
@@ -591,7 +599,7 @@ class ForcedDoublePendulumBehavior(BaseDoublePendulumBehavior):
         return [theta1_dot, theta2_dot, q_dot, p_theta1_dot, p_theta2_dot, p_q_dot]
     
     def energy_potential(self, state: DoublePendulum.State, prop: DoublePendulum.Properties):
-        return np.sum(DoublePendulumBehavior.gravity().U(state, pendulum) + self.__U(state.q()))
+        return np.sum(self.gravity().U(state, prop) + self.__forcing_potential.U(state, prop))
 
 ###################################################################################################################################################################################
 # PENDULATION SIMULATION
@@ -745,8 +753,8 @@ if __name__ == "__main__":
     ))
 
     # Choose behavior
-    behavior = SingleFixedPendulumBehavior()
-    # behavior = ForcedDoublePendulumBehavior(FixedQPotential())
+    #behavior = SingleFixedPendulumBehavior()
+    behavior = ForcedDoublePendulumBehavior(ZeroPotential())
 
     # Setup solvers
     time_evolver = ODEINTTimeEvolver()
