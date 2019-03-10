@@ -89,15 +89,16 @@ class DoublePendulum:
 
     # Sets the current state to new_state
     def set_state(self, new_state: State):
-        adj_state = DoublePendulum.State(
-            neg_pi_to_pi(new_state.theta1()),
-            neg_pi_to_pi(new_state.theta2()),
-            new_state.q(),
-            new_state.theta1_dot(),
-            new_state.theta2_dot(),
-            new_state.q_dot()
-        )
-        self.__state = adj_state
+        # Constrain the angles to between -pi and pi for easy interpretation
+        # adj_state = DoublePendulum.State(
+        #     neg_pi_to_pi(new_state.theta1()),
+        #     neg_pi_to_pi(new_state.theta2()),
+        #     new_state.q(),
+        #     new_state.theta1_dot(),
+        #     new_state.theta2_dot(),
+        #     new_state.q_dot()
+        # )
+        self.__state = new_state
 
     # Calculates and returns the positions of the endpoints of the arms of the pendulum
     #
@@ -334,8 +335,8 @@ class GravitationalPotential(Potential):
         theta1 = state.theta1()
         theta2 = state.theta2()
 
-        dU_dtheta1 = 3*g*L*sin(theta1)
-        dU_dtheta2 = g*L*sin(theta2)
+        dU_dtheta1 = -3*g*L*sin(theta1)
+        dU_dtheta2 = -1*g*L*sin(theta2)
         dU_dq = 0 # q has no effect on gravitational potential
 
         return [dU_dtheta1, dU_dtheta2, dU_dq]
@@ -349,22 +350,14 @@ class FixedQPotential(Potential):
     def U(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
         U_theta1 = 0
         U_theta2 = 0
-        U_q = 0
-
-        if (state.q() != self.__q):
-            U_q = inf
+        U_q = 1/2 * 1E1 * (state.q() - self.__q)**2
         
         return [U_theta1, U_theta2, U_q]
     
     def dU_dcoord(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
         dU_dtheta1 = 0
         dU_dtheta2 = 0
-        dU_dq = 0
-
-        if (state.q() > self.__q):
-            dU_dq = inf
-        elif (state.q() < self.__q):
-            dU_dq = -inf
+        dU_dq = 1E1 * (state.q() - self.__q)
         
         return [dU_dtheta1, dU_dtheta2, dU_dq]
 
@@ -592,8 +585,8 @@ class ForcedDoublePendulumBehavior(BaseDoublePendulumBehavior):
         gravity_terms = self.gravity().dU_dcoord(state, prop)
         forcing_terms = self.__forcing_potential.dU_dcoord(state, prop)
 
-        p_theta1_dot = 1/2*m * (-1*L**2*theta1_dot*theta2_dot*sin(theta1 - theta2)) + gravity_terms[0] + forcing_terms[0]
-        p_theta2_dot = 1/2*m * (   L**2*theta1_dot*theta2_dot*sin(theta1 - theta2)) + gravity_terms[1] + forcing_terms[1]
+        p_theta1_dot = 1/2*m * (-3*q_dot*L*theta1_dot*sin(theta1) - L**2*theta1_dot*theta2_dot*sin(theta1 - theta2)) - (gravity_terms[0] + forcing_terms[0])
+        p_theta2_dot = 1/2*m * (-1*q_dot*L*theta2_dot*sin(theta2) + L**2*theta1_dot*theta2_dot*sin(theta1 - theta2)) - (gravity_terms[1] + forcing_terms[1])
         p_q_dot      = gravity_terms[2] + forcing_terms[2]
 
         return [theta1_dot, theta2_dot, q_dot, p_theta1_dot, p_theta2_dot, p_q_dot]
@@ -744,8 +737,8 @@ if __name__ == "__main__":
     d = sqrt(1/12)*L # m
 
     pendulum = DoublePendulum(DoublePendulum.Properties(L, m, d), DoublePendulum.State(
-        theta1     = pi/4,
-        theta2     = pi/4,
+        theta1     = pi/2,
+        theta2     = pi/2,
         q          = 0,
         theta1_dot = 0,
         theta2_dot = 0,

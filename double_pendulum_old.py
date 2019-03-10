@@ -374,15 +374,15 @@ if __name__ == "__main__":
     dt = 1.0 / 50
 
     pendulum = ForcedDoublePendulum(L, m, d, A, B, [
-        pi/10, # theta_1
-        0, # theta_2
+        pi/2, # theta_1
+        pi/2, # theta_2
         0, # q
         0, # p_theta_1
         0, # p_theta_2
         0, # p_q
-    ], fixed_q = True)
+    ], fixed_q = False)
 
     animator = PendulumAnimator(pendulum, dt, plot_q = False)
     animator.init()
-    animator.run(3)
+    animator.run(10)
     
