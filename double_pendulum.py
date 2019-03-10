@@ -240,9 +240,10 @@ class DoublePendulumBehavior(ABC):
     def dy_dt(self, t: float, y: List[float], prop: DoublePendulum.Properties) -> List[float]:
         pass
     
-    # TODO document
+    # Returns the potential energy, a pendulum in the given state and with the given properties would have
+    # according to this behavior
     @abstractmethod
-    def energy_potential(self, state: DoublePendulum.State, prop: DoublePendulum.Properties):
+    def energy_potential(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> float:
         pass
 
 # Abstract Base Class for implementing numerical methods to solve the time evolution of a Double Pendulum
@@ -602,6 +603,7 @@ class DoublePendulumSimulation:
         self.__behavior = behavior
         self.__time_evolver = time_evolver
 
+        self.init_state = self.__pendulum.state()
         self.__elapsed_time = 0
 
     def pendulum(self) -> DoublePendulum: return self.__pendulum
@@ -618,6 +620,11 @@ class DoublePendulumSimulation:
         potential = self.__behavior.energy_potential(self.__pendulum.state(), self.__pendulum.prop())
         kinetic = self.__pendulum.energy_kinetic()
         return (potential, kinetic)
+
+    # Resets the pendulum to its initial state and returns to time 0
+    def reset(self):
+        self.__pendulum.set_state(self.init_state)
+        self.__elapsed_time = 0
 
     # Progresses the simulation through a time step, dt
     def step(self, dt: float):
@@ -650,7 +657,10 @@ class DoublePendulumAnimator:
     def __init__(self, simulation: DoublePendulumSimulation):
         self.__simulation = simulation
 
-    # TODO documentation
+    # Performs all the setup necessary before running an animation
+    #
+    # This MUST be called before calling run()
+    #
     def init(self):
         # Creat the figure
         self.fig = plt.figure(figsize=(8, 8))
@@ -679,9 +689,10 @@ class DoublePendulumAnimator:
 
         self.__reset()
 
-    # TODO documentation
+    # Resets the simulation to its initial conditions
+    # Resets all data and labels to default values
     def __reset(self):
-        # TODO reset simulation
+        self.__simulation.reset()
 
         self.line_main.set_data([],[])
         self.time_text_main.set_text('')
