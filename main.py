@@ -2,17 +2,6 @@ from double_pendulum import *
 
 from math import sin, cos, sqrt
 
-class HarmonicOscillator(Potential):
-
-    def __init__(self, frequency: float):
-        self.__w = frequency
-
-    def U(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
-        return [0, 0, 1/2*(self.__w**2)*(state.q()**4)]
-    
-    def dU_dcoord(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
-        return [0, 0, 2*(self.__w**2)*state.q()**3]
-
 def run(theta1: float, theta2: float, behavior: DoublePendulumBehavior):
     # Setup pendulum
     L = 1            # m
@@ -45,4 +34,4 @@ def run(theta1: float, theta2: float, behavior: DoublePendulumBehavior):
     animator.run(dt, draw_dt, 1000)
 
 if __name__ == "__main__":
-    run(-pi/100, pi/100, HarmonicOscillator(50))
+    run(pi/10, pi/10, FixedQPotential())

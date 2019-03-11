@@ -301,18 +301,35 @@ class ODEINTTimeEvolver(TimeEvolver):
 # A potential that is the sum of two other potentials
 class SumPotential(Potential):
 
-    def __init__(self, potentialA: Potential, potentialB: Potential):
-        self.potentialA = potentialA
-        self.potentialB = potentialB
+    def __init__(self, potentialA: Potential, potentialB: Potential, subtract: bool = False):
+        self.__potentialA = potentialA
+        self.__potentialB = potentialB
+        self.__subtract = subtract
     
+    def op(self):
+        return (-1 if self.__subtract else 1)
+
     def U(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
-        return np.array(self.potentialA.U(state, prop)) + np.array(self.potentialB.U(state, prop))
+        return np.array(self.__potentialA.U(state, prop)) + self.op() * np.array(self.__potentialB.U(state, prop))
     
     def dU_dcoord(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
-        return np.array(self.potentialA.dU_dcoord(state, prop)) + np.array(self.potentialB.dU_dcoord(state, prop))
+        return np.array(self.__potentialA.dU_dcoord(state, prop)) + self.op() * np.array(self.__potentialB.dU_dcoord(state, prop))
+
+# A base implementation of Potential that adds support for using the + and - operators
+#
+# All custom defined potentials should inherit from BasePotential instead of Potential,
+# so that they support these operators
+#
+class BasePotential(Potential):
+
+    def __add__(self, other):
+        return SumPotential(self, other, subtract = False)
+    
+    def __sub__(self, other):
+        return SumPotential(self, other, subtract = True)
 
 # A potential that is zero everywhere
-class ZeroPotential(Potential):
+class ZeroPotential(BasePotential):
 
     def U(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
         return [0,0,0]
@@ -321,7 +338,7 @@ class ZeroPotential(Potential):
         return [0,0,0]
 
 # The potential energy due to gravity where 0 is at the height of the pivot point (q)
-class GravitationalPotential(Potential):
+class GravitationalPotential(BasePotential):
     # Fundamental constants:
     g = scipy.constants.g
 
@@ -356,6 +373,34 @@ class GravitationalPotential(Potential):
 
         return [dU_dtheta1, dU_dtheta2, dU_dq]
 
+# A harmonic oscillator potential where:
+#
+#   U(coord) = 1/2 * coord_k * (coord - coord_eq)^2
+#
+class HarmonicOscillatorPotential(BasePotential):
+
+    def __init__(self, theta1_k: float = 0, theta1_eq: float = 0, theta2_k: float = 0, theta2_eq: float = 0, q_k: float = 0, q_eq: float = 0):
+        self.__theta1_k  = theta1_k
+        self.__theta1_eq = theta1_eq
+        self.__theta2_k  = theta2_k
+        self.__theta2_eq = theta2_eq
+        self.__q_k       = q_k
+        self.__q_eq      = q_eq
+
+    def U(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+        return [
+            1/2 * self.__theta1_k * (state.theta1() - self.__theta1_eq)**2,
+            1/2 * self.__theta2_k * (state.theta2() - self.__theta2_eq)**2,
+            1/2 * self.__q_k      * (state.q()      - self.__q_eq     )**2
+        ]
+    
+    def dU_dcoord(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+        return [
+            self.__theta1_k * (state.theta1() - self.__theta1_eq),
+            self.__theta2_k * (state.theta2() - self.__theta2_eq),
+            self.__q_k      * (state.q()      - self.__q_eq     )
+        ]
+
 FIXED_APPROX_COEFF = 1E5
 
 # A potential that approximately fixes q (the pivot point) in place
@@ -364,25 +409,8 @@ FIXED_APPROX_COEFF = 1E5
 # with a stable equilibrium at q = q_eq such that q would need absurd amounts of
 # kinetic energy to leave that equilibrium position
 #
-class FixedQPotential(Potential):
-
-    # Constructor for a new FixedQPotential where the equilibrium position for q can be set
-    def __init__(self, q_eq: float = 0):
-        self.__q_eq = q_eq
-
-    def U(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
-        U_theta1 = 0
-        U_theta2 = 0
-        U_q = 1/2 * FIXED_APPROX_COEFF * (state.q() - self.__q_eq)**2
-        
-        return [U_theta1, U_theta2, U_q]
-    
-    def dU_dcoord(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
-        dU_dtheta1 = 0
-        dU_dtheta2 = 0
-        dU_dq = FIXED_APPROX_COEFF * (state.q() - self.__q_eq)
-        
-        return [dU_dtheta1, dU_dtheta2, dU_dq]
+def FixedQPotential(q_eq: float = 0):
+    return HarmonicOscillatorPotential(q_k = FIXED_APPROX_COEFF, q_eq = q_eq)
 
 # A potential that approximately fixes theta1 = theta2, so that the pendulum behaves like a single pendulum
 #
@@ -390,21 +418,21 @@ class FixedQPotential(Potential):
 # with a stable equilibrium at theta1 = theta2 such that you would need absurd amounts of
 # kinetic energy to leave that equilibrium position
 #
-class SinglePendulumPotential(Potential):
+class SinglePendulumPotential(BasePotential):
 
     def U(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
-        U_theta1 = 1/2 * FIXED_APPROX_COEFF * (state.theta1() - state.theta2())**2
-        U_theta2 = 1/2 * FIXED_APPROX_COEFF * (state.theta2() - state.theta1())**2
-        U_q = 0
-        
-        return [U_theta1, U_theta2, U_q]
+        return [
+            1/2 * FIXED_APPROX_COEFF * (state.theta1() - state.theta2())**2,
+            1/2 * FIXED_APPROX_COEFF * (state.theta2() - state.theta1())**2,
+            0
+        ]
     
     def dU_dcoord(self, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
-        dU_dtheta1 = FIXED_APPROX_COEFF * (state.theta1() - state.theta2())
-        dU_dtheta2 = FIXED_APPROX_COEFF * (state.theta2() - state.theta1())
-        dU_dq = 0
-        
-        return [dU_dtheta1, dU_dtheta2, dU_dq]
+        return [
+            FIXED_APPROX_COEFF * (state.theta1() - state.theta2()),
+            FIXED_APPROX_COEFF * (state.theta2() - state.theta1()),
+            0
+        ]
 
 ###################################################################################################################################################################################
 # BEHAVIOR IMPLEMENTATIONS
