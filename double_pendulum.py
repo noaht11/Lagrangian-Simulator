@@ -249,8 +249,7 @@ class DoublePendulumBehavior(ABC):
 # Abstract Base Class for implementing numerical methods to solve the time evolution of a Double Pendulum
 class TimeEvolver(ABC):
 
-    # Updates the state of the pendulum to it's new state after an amount of time, dt, has passed
-    # according to the provided behavior
+    # Updates the state of the pendulum to it's new state at time t + dt according to the provided behavior
     def evolve(self, pendulum : DoublePendulum, behavior: DoublePendulumBehavior, t: float, dt: float):
         # Convert the current state to y vector (at time t)
         state_0 = pendulum.state()
@@ -279,7 +278,7 @@ class TimeEvolver(ABC):
     #
     # NOTE: the absolute time t_0 is not accurate nor meaningful here so dy/dt should not depend on t_0
     @abstractmethod
-    def solve_ode(self, t: float, dt: float, dy_dt: Callable[[float, List[float], DoublePendulum.Properties], List[float]], y_0: List[float], prop: DoublePendulum.Properties):
+    def solve_ode(self, t_0: float, dt: float, dy_dt: Callable[[float, List[float], DoublePendulum.Properties], List[float]], y_0: List[float], prop: DoublePendulum.Properties):
         pass
 
 ###################################################################################################################################################################################
@@ -291,8 +290,8 @@ from scipy.integrate import odeint
 
 # TimeEvolver implementation that uses scipy.integrate.odeint to solve ODEs
 class ODEINTTimeEvolver(TimeEvolver):
-    def solve_ode(self, t: float, dt: float, dy_dt: Callable[[float, List[float], DoublePendulum.Properties], List[float]], y_0: List[float], prop: DoublePendulum.Properties):
-        return odeint(dy_dt, y_0, [t, t + dt], args = (prop,), tfirst = True)[1]
+    def solve_ode(self, t_0: float, dt: float, dy_dt: Callable[[float, List[float], DoublePendulum.Properties], List[float]], y_0: List[float], prop: DoublePendulum.Properties):
+        return odeint(dy_dt, y_0, [t_0, t_0 + dt], args = (prop,), tfirst = True)[1]
 
 ###################################################################################################################################################################################
 # POTENTIALS
@@ -367,8 +366,8 @@ class GravitationalPotential(BasePotential):
         theta1 = state.theta1()
         theta2 = state.theta2()
 
-        dU_dtheta1 = -3*m*g*L*sin(theta1)
-        dU_dtheta2 = -1*m*g*L*sin(theta2)
+        dU_dtheta1 = -3/2*m*g*L*sin(theta1)
+        dU_dtheta2 = -1/2*m*g*L*sin(theta2)
         dU_dq = 0 # q has no effect on gravitational potential
 
         return [dU_dtheta1, dU_dtheta2, dU_dq]
@@ -492,11 +491,11 @@ class GeneralDoublePendulumBehavior(BaseDoublePendulumBehavior):
     #   p_q
     #
     # The coefficients for these equations are functions of theta1, theta2, L and d and are returned by this method
-    # in the form of a 2x2 matrix, A, that satsifies the following equation
-    #  _        _   _            _         _          _
-    # |          | |  theta1_dot  |   =   |  p_theta1  |
-    # |    A     | |  theta2_dot  |       |  p_theta2  |
-    # |_        _| |_ q_dot      _|       |_ p_q      _|
+    # in the form of a 3x3 matrix, that satsifies the following equation
+    #  _          _   _            _         _          _
+    # |  A1 A2 A3  | |  theta1_dot  |   =   |  p_theta1  |
+    # |  B1 B2 B3  | |  theta2_dot  |       |  p_theta2  |
+    # |_ C1 C2 C3 _| |_ q_dot      _|       |_ p_q      _|
     #
     def _coord_dot_p_coord_matrix(self, theta1: float, theta2: float, L: float, m: float, d: float) -> List[List[float]]:
         return np.array([
@@ -544,9 +543,11 @@ class GeneralDoublePendulumBehavior(BaseDoublePendulumBehavior):
         matrix = self._p_coord_coord_dot_matrix(theta1, theta2, L, m, d)
         return np.matmul(matrix, p_coord)
 
+    # Calculates p_theta1_dot given the parameters of the currents state and the potential
     def _p_theta1_dot(self, theta1: float, theta2: float, theta1_dot: float, theta2_dot: float, q_dot: float, potential_term: float, L: float, m: float) -> float:
         return 1/2*m * (-3*q_dot*L*theta1_dot*sin(theta1) - L**2*theta1_dot*theta2_dot*sin(theta1 - theta2)) - potential_term
 
+    # Calculates p_theta2_dot given the parameters of the currents state and the potential
     def _p_theta2_dot(self, theta1: float, theta2: float, theta1_dot: float, theta2_dot: float, q_dot: float, potential_term: float, L: float, m: float) -> float:
         return 1/2*m * (-1*q_dot*L*theta2_dot*sin(theta2) + L**2*theta1_dot*theta2_dot*sin(theta1 - theta2)) - potential_term
 
@@ -626,6 +627,10 @@ class GeneralDoublePendulumBehavior(BaseDoublePendulumBehavior):
     def energy_potential(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties):
         return np.sum(self.gravity().U(t, state, prop) + self.__forcing_potential.U(t, state, prop))
 
+# Abstract Base Class for a forcing function on the coordinate q
+#
+# A forcing function is fully defined by its value as a function of time
+# and its derivative as a function of time
 class QForcingFunction(ABC):
 
     @abstractmethod
@@ -635,7 +640,8 @@ class QForcingFunction(ABC):
     @abstractmethod
     def dq_dt(self, t: float) -> float:
         pass
-    
+
+# A forcing function that holds q fixed at a given point (by default, 0)
 class FixedQForcingFunction(QForcingFunction):
     
     def __init__(self, fixed_q: float = 0):
@@ -644,6 +650,24 @@ class FixedQForcingFunction(QForcingFunction):
     def q(self, t: float) -> float: return self.__fixed_q
     def dq_dt(self, t: float) -> float: return 0
 
+# A sinusoidal forcing function with a configurable amplitude, frequency and phase
+class SinusoidalForcing(QForcingFunction):
+    
+    def __init__(self, amplitude: float = 1, frequency: float = 1, phase = 0):
+        self.__amplitude = amplitude
+        self.__frequency = frequency
+        self.__phase = phase
+
+    def q(self, t: float) -> float: return self.__amplitude * sin(2*pi*self.__frequency*t - self.__phase)
+    def dq_dt(self, t: float) -> float: return self.__amplitude * 2*pi*self.__frequency * cos(2*pi*self.__frequency*t - self.__phase)
+
+# Implementation of DoublePendulumBehavior that forces q and q_dot according to a given function
+# instead of solving for them.
+#
+# This class extends GeneralDoublePendulumBehavior, but overrides the core behavior methods to force q and q_dot.
+#
+# It also supports a forcing_potential in addition to the forcing function on q
+#
 class ForcedQDoublePendulumBehavior(GeneralDoublePendulumBehavior):
     
     def __init__(self, forcing_function: QForcingFunction = FixedQForcingFunction(), forcing_potential: Potential = ZeroPotential()):
@@ -651,10 +675,34 @@ class ForcedQDoublePendulumBehavior(GeneralDoublePendulumBehavior):
         self.__ff = forcing_function
         self.__forcing_potential = forcing_potential
 
+    # Calculates p_theta1 and p_theta2, given theta1, theta2, q_dot and pendulum properties
+    #
+    # This function uses the matrix coefficients provided by the super class, but re-organizes them to use a given q_dot instead of solving for it
+    #
+    # The new system of equations can be represented by the following matrix equation (there is no longer an equation for p_q)
+    #  _          _   _            _         _          _
+    # |  A1 A2 A3  | |  theta1_dot  |   =   |  p_theta1  |
+    # |_ B1 B2 B3 _| |  theta2_dot  |       |_ p_theta2 _|
+    #                |_ q_dot      _|
+    #
+    # To invert this system and solve for theta1_dot and theta2_dot we have the following matrix equation:
+    #  _     _   _            _         _          _         _          _
+    # | A1 A2 | |  theta1_dot  |   =   |  p_theta1  |   -   |  A3*q_dot  |
+    # |_B1 B2_| |_ theta2_dot _|       |_ p_theta2 _|       |_ B3*q_dot _|
+    #
+    # Therefore theta1_dot and theta2_dot can be obtained by multiplying the RHS by the inverse of the 2x2 matrix
+    #
     def _p_theta_theta_dot(self, p_theta: List[float], theta1: float, theta2: float, q_dot: float, L: float, m: float, d: float) -> List[float]:
+        # Get the original matrix from the superclass
         matrix = self._coord_dot_p_coord_matrix(theta1, theta2, L, m, d)
+
+        # Calculate the RHS of the matrix equation using the top-right and middle-right coefficients from the matrix
         p_theta_adj = p_theta - q_dot * matrix[0:2, 2]
+
+        # Extract the 2x2 top-left sub-matrix (i.e. the coefficients multiplying only theta1_dot and theta2_dot)
         matrix_adj = matrix[0:2, 0:2]
+
+        # Invert the matrix and multiply by the RHS to solve for theta1_dot and theta2_dot
         theta_dot = np.matmul(np.linalg.inv(matrix_adj), p_theta_adj)
         return theta_dot
 
@@ -671,11 +719,13 @@ class ForcedQDoublePendulumBehavior(GeneralDoublePendulumBehavior):
         theta2_dot = state.theta2_dot()
         q_dot      = state.q_dot()
 
+        # Enforce that the state of q and q_dot always matches the forcing function values
         assert(q == self.__ff.q(t))
         assert(q_dot == self.__ff.dq_dt(t))
 
         p_coord = self._coord_dot_to_p_coord([theta1_dot, theta2_dot, q_dot], theta1, theta2, L, m, d)
 
+        # The y-vector representation no longer has q and p_q_dot since they are not part of the differential equation when they are forced
         return [theta1, theta2, p_coord[0], p_coord[1]]
     
     def y_to_state(self, t: float, y: List[float], prop: DoublePendulum.Properties) -> DoublePendulum.State:
