@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Callable
 
-from math import sin, cos, pi, inf
+from math import sin, cos, pi, inf, exp
 import scipy.constants
 
 ###################################################################################################################################################################################
@@ -400,7 +400,7 @@ class HarmonicOscillatorPotential(BasePotential):
             self.__q_k      * (state.q()      - self.__q_eq     )
         ]
 
-FIXED_APPROX_COEFF = 1E5
+FIXED_APPROX_COEFF = 1E2
 
 # A potential that approximately fixes q (the pivot point) in place
 #
@@ -653,13 +653,33 @@ class FixedQForcingFunction(QForcingFunction):
 # A sinusoidal forcing function with a configurable amplitude, frequency and phase
 class SinusoidalForcing(QForcingFunction):
     
-    def __init__(self, amplitude: float = 1, frequency: float = 1, phase = 0):
+    def __init__(self, amplitude: float = 1, frequency: float = 1, phase = 0, damping = 0):
         self.__amplitude = amplitude
         self.__frequency = frequency
         self.__phase = phase
+        self.__damping = damping
 
-    def q(self, t: float) -> float: return self.__amplitude * sin(2*pi*self.__frequency*t - self.__phase)
-    def dq_dt(self, t: float) -> float: return self.__amplitude * 2*pi*self.__frequency * cos(2*pi*self.__frequency*t - self.__phase)
+    def q(self, t: float) -> float: return self.__amplitude * exp(-1*self.__damping * t) * sin(2*pi*self.__frequency*t - self.__phase)
+    def dq_dt(self, t: float) -> float: return self.__amplitude * exp(-1*self.__damping * t) * (-1*self.__damping * sin(2*pi*self.__frequency*t - self.__phase) +  2*pi*self.__frequency * cos(2*pi*self.__frequency*t - self.__phase))
+
+import sympy as sym
+from sympy import symbols, lambdify, diff
+sym.init_printing()
+
+class SymbolicForcing(QForcingFunction):
+
+    def __init__(self, q_sym):
+        t = symbols('t')
+        self.__q_sym = lambdify(t, q_sym)
+        self.__dq_dt_sym = lambdify(t, diff(q_sym, t))
+    
+    def q(self, t: float) -> float: return self.__q_sym(t)
+    def dq_dt(self, t: float) -> float: return self.__dq_dt_sym(t)
+
+def SymbolicSinusoidalForcing(A = 1, w = 1, phi = 0, k = 0):
+    t = symbols('t')
+    expr = A * sym.exp(-1*k * t) * sym.sin(w*t - phi)
+    return expr
 
 # Implementation of DoublePendulumBehavior that forces q and q_dot according to a given function
 # instead of solving for them.
@@ -831,8 +851,8 @@ class DoublePendulumSimulation:
         self.__elapsed_time += dt
 
         # Update graph arrays
-        self.__t = np.append(self.__t, self.__elapsed_time)
-        self.__q = np.append(self.__q, self.pendulum().state().q())
+        # self.__t = np.append(self.__t, self.__elapsed_time)
+        # self.__q = np.append(self.__q, self.pendulum().state().q())
 
     # Progresses the simulation up to absolute time, t_final, in steps of dt
     def step_until(self, dt: float, t_final: float):

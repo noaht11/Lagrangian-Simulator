@@ -2,7 +2,7 @@ from double_pendulum import *
 
 from math import sin, cos, sqrt
 
-def setup_pendulum(theta1: float = 0, theta2: float = 0, q: float = 0, theta1_dot: float = 0, theta2_dot: float = 0, q_dot: float = 0, L: float = 1, m: float = 1):
+def setup_pendulum(theta1: float = 0, theta2: float = 0, q: float = 0, theta1_dot: float = 0, theta2_dot: float = 0, q_dot: float = 0, L: float = 0.1, m: float = 0.1):
     d = sqrt(1/12)*L # m
     pendulum = DoublePendulum(DoublePendulum.Properties(L, m, d), DoublePendulum.State(
         theta1     = theta1,
@@ -53,15 +53,31 @@ def run(pendulum: DoublePendulum, behavior: DoublePendulumBehavior):
     simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver)
 
     # Simulation parameters
-    dt      = 1.0 / 100
+    sim_dt  = 1.0 / 100
     draw_dt = 1.0 / 100
 
     # Run animated simulation
     animator = DoublePendulumAnimator(simulation)
     animator.init()
-    animator.run(dt, draw_dt, 1000)
+    animator.run(sim_dt, draw_dt, 1000)
 
 if __name__ == "__main__":
     # run_potential(theta1 = pi/100, theta2 = pi/100, q = 0, potential = FixedQPotential())
-    # run_forcing(theta1 = pi/100, theta2 = pi/100, forcing_function = SinusoidalForcing(amplitude = -0.2, frequency = 3), potential = SinglePendulumPotential())
-    run_potential(theta1 = pi/10, theta2 = pi/10, potential = TestPotential(k1 = 2E3, k2 = 10))
+    # run_forcing(theta1 = pi/100, theta2 = pi/100, forcing_function = SinusoidalForcing(amplitude = 0.30, frequency = 4, phase = pi/2, damping = 3.3), potential = SinglePendulumPotential())
+    run_potential(theta1 = pi/10, theta2 = pi/10, q = -0.15, potential = TestPotential(k1 = 5, k2 = 0.01) + SinglePendulumPotential())
+
+    # message = SymbolicSinusoidalForcing(A = 0.3, w = 8*sym.pi, phi = sym.pi/2, k = 3.3)
+    # carrier = SymbolicSinusoidalForcing(w = 10, phi = sym.pi/2)
+
+    # t = symbols('t')
+
+    # message = SymbolicSinusoidalForcing(A = -0.5, w = 8*sym.pi, phi = sym.pi/2)
+    # carrier = SymbolicSinusoidalForcing(w = 1.4, phi = -1*sym.pi/2)
+    # multiplier = (t - 0.8)
+
+    # forcing = message * carrier * multiplier
+    # sym.pprint(forcing)
+
+    # forcing = SymbolicSinusoidalForcing(A = 0.06, w = 8*sym.pi, phi = sym.pi/2, k = 1.55)
+
+    # run_forcing(theta1 = pi/10, theta2 = pi/10, forcing_function = SymbolicForcing(forcing), potential = SinglePendulumPotential())
