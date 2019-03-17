@@ -26,14 +26,35 @@ def run_forcing(theta1: float = 0, theta2: float = 0, forcing_function: QForcing
         ForcedQDoublePendulumBehavior(forcing_function, potential)
     )
 
+class TestPotential(BasePotential):
+    def __init__(self, k1: float = 0, k2: float = 0, k3: float = 0, k4: float = 0):
+        self.__k1 = k1
+        self.__k2 = k2
+        self.__k3 = k3
+        self.__k4 = k4
+
+    def U(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+        return [
+            0,
+            0,
+            -1*(self.__k1 * state.theta1() + self.__k2 * state.theta1_dot() + self.__k3 * state.theta2() + self.__k4 * state.theta2_dot()) * state.q()
+        ]
+    
+    def dU_dcoord(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+        return [
+            0,
+            0,
+            -1*(self.__k1 * state.theta1() + self.__k2 * state.theta1_dot() + self.__k3 * state.theta2() + self.__k4 * state.theta2_dot())
+        ]
+
 def run(pendulum: DoublePendulum, behavior: DoublePendulumBehavior):
     # Setup solvers
     time_evolver = ODEINTTimeEvolver()
     simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver)
 
     # Simulation parameters
-    dt      = 1.0 / 50
-    draw_dt = 1.0 / 50
+    dt      = 1.0 / 100
+    draw_dt = 1.0 / 100
 
     # Run animated simulation
     animator = DoublePendulumAnimator(simulation)
@@ -42,4 +63,5 @@ def run(pendulum: DoublePendulum, behavior: DoublePendulumBehavior):
 
 if __name__ == "__main__":
     # run_potential(theta1 = pi/100, theta2 = pi/100, q = 0, potential = FixedQPotential())
-    run_forcing(theta1 = pi/100, theta2 = pi/100, forcing_function = SinusoidalForcing(amplitude = 0.05, frequency = 10))
+    # run_forcing(theta1 = pi/100, theta2 = pi/100, forcing_function = SinusoidalForcing(amplitude = -0.2, frequency = 3), potential = SinglePendulumPotential())
+    run_potential(theta1 = pi/10, theta2 = pi/10, potential = TestPotential(k1 = 2E3, k2 = 10))

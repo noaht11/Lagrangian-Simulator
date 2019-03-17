@@ -800,6 +800,9 @@ class DoublePendulumSimulation:
         self.init_state = self.__pendulum.state()
         self.__elapsed_time = 0
 
+        self.__t = np.array(0)
+        self.__q = np.array(pendulum.state().q())
+
     def pendulum(self) -> DoublePendulum: return self.__pendulum
     def behavior(self) -> DoublePendulumBehavior: return self.__behavior
     def time_evolver(self) -> TimeEvolver: return self.__time_evolver
@@ -822,8 +825,14 @@ class DoublePendulumSimulation:
 
     # Progresses the simulation through a time step, dt
     def step(self, dt: float):
+        # Calculate next state
         self.time_evolver().evolve(self.pendulum(), self.behavior(), self.__elapsed_time, dt)
+        # Update elapsed time
         self.__elapsed_time += dt
+
+        # Update graph arrays
+        self.__t = np.append(self.__t, self.__elapsed_time)
+        self.__q = np.append(self.__q, self.pendulum().state().q())
 
     # Progresses the simulation up to absolute time, t_final, in steps of dt
     def step_until(self, dt: float, t_final: float):
