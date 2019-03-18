@@ -62,9 +62,10 @@ def run(pendulum: DoublePendulum, behavior: DoublePendulumBehavior):
     animator.run(sim_dt, draw_dt, 1000)
 
 if __name__ == "__main__":
+    # run_potential(theta1 = pi/10, theta2 = pi/10, q = 0)
     # run_potential(theta1 = pi/100, theta2 = pi/100, q = 0, potential = FixedQPotential())
     # run_forcing(theta1 = pi/100, theta2 = pi/100, forcing_function = SinusoidalForcing(amplitude = 0.30, frequency = 4, phase = pi/2, damping = 3.3), potential = SinglePendulumPotential())
-    run_potential(theta1 = pi/10, theta2 = pi/10, q = -0.15, potential = TestPotential(k1 = 5, k2 = 0.01) + SinglePendulumPotential())
+    # run_potential(theta1 = pi/10, theta2 = pi/10, q = -0.15, potential = TestPotential(k1 = 5, k2 = 0.01) + SinglePendulumPotential())
 
     # message = SymbolicSinusoidalForcing(A = 0.3, w = 8*sym.pi, phi = sym.pi/2, k = 3.3)
     # carrier = SymbolicSinusoidalForcing(w = 10, phi = sym.pi/2)
@@ -81,3 +82,6 @@ if __name__ == "__main__":
     # forcing = SymbolicSinusoidalForcing(A = 0.06, w = 8*sym.pi, phi = sym.pi/2, k = 1.55)
 
     # run_forcing(theta1 = pi/10, theta2 = pi/10, forcing_function = SymbolicForcing(forcing), potential = SinglePendulumPotential())
+
+    # WORKING:
+    run_potential(theta1 = pi/10, theta2 = pi/10, q = -0.15, potential = TestPotential(k1 = 5, k2 = 0.01) + SinglePendulumPotential())

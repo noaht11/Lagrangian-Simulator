@@ -829,6 +829,9 @@ class DoublePendulumSimulation:
     
     def elapsed_time(self) -> float: return self.__elapsed_time
 
+    def q(self) -> List[float]: return self.__q
+    def t(self) -> List[float]: return self.__t
+
     # Calculates the current energy (potential and kinetic) of the pendulum
     #
     # Return value is a tuple of the form: (potential, kinetic)
@@ -851,8 +854,8 @@ class DoublePendulumSimulation:
         self.__elapsed_time += dt
 
         # Update graph arrays
-        # self.__t = np.append(self.__t, self.__elapsed_time)
-        # self.__q = np.append(self.__q, self.pendulum().state().q())
+        self.__t = np.append(self.__t, self.__elapsed_time)
+        self.__q = np.append(self.__q, self.pendulum().state().q())
 
     # Progresses the simulation up to absolute time, t_final, in steps of dt
     def step_until(self, dt: float, t_final: float):
@@ -889,14 +892,14 @@ class DoublePendulumAnimator:
         self.fig = plt.figure(figsize=(8, 8))
 
         # Define how much larger the plot will be than the size of the pendulum
-        scale_margin_factor_x = 3
+        scale_margin_factor_x = 6
         scale_margin_factor_y = 3
         L = self.__simulation.pendulum().prop().L()
         scale_x = (-1 * scale_margin_factor_x * L, scale_margin_factor_x * L)
         scale_y = (-1 * scale_margin_factor_y * L, scale_margin_factor_y * L)
 
         # Create the subplot
-        self.ax_main = self.fig.add_subplot(111, aspect='equal', autoscale_on=False, xlim=scale_x, ylim=scale_y)
+        self.ax_main = self.fig.add_subplot(211, aspect = 'equal', autoscale_on = False, xlim = scale_x, ylim = scale_y)
         self.ax_main.set_axis_off() # Hide the axes
 
         # The plot that will show the lines of the pendulum
@@ -910,6 +913,14 @@ class DoublePendulumAnimator:
         self.time_text_main = self.ax_main.text(0.02, 0.95, '', transform=self.ax_main.transAxes)
         self.energy_text = self.ax_main.text(0.02, 0.85, '', transform=self.ax_main.transAxes)
 
+        # Graph figure
+        #self.fig_graph = plt.figure(figsize=(8, 8))
+        self.ax_q = self.fig.add_subplot(212, autoscale_on = True)
+        self.ax_q.set_xlabel("Time (seconds)")
+        self.ax_q.set_ylabel("q (metres)")
+        self.ax_q.grid()
+        self.line_q, = self.ax_q.plot([], [])
+
         self.__reset()
 
     # Resets the simulation to its initial conditions
@@ -921,8 +932,10 @@ class DoublePendulumAnimator:
         self.time_text_main.set_text('')
         self.energy_text.set_text('')
 
+        self.line_q.set_data([], [])
+
         # Required for matplotlib to update
-        return self.line_main, self.time_text_main, self.energy_text
+        return self.line_main, self.time_text_main, self.energy_text, self.line_q
 
     # Internal function that performs a single animation step
     def __animate(self, i: int, dt: float, draw_dt: float):
@@ -943,8 +956,13 @@ class DoublePendulumAnimator:
         total_energy = potential + kinetic
         self.energy_text.set_text('potential = %7.3f\nkinetic = %7.3f\ntotal = %7.3f' % (potential, kinetic, total_energy))
 
+        # Update q plot
+        self.line_q.set_data(self.__simulation.t(), self.__simulation.q())
+        self.ax_q.relim()
+        self.ax_q.autoscale_view(True, True, True)
+
         # Required for matplotlib to update
-        return self.line_main, self.time_text_main, self.energy_text
+        return self.line_main, self.time_text_main, self.energy_text, self.line_q
 
     # Runs and displays an animation of the pendulum
     #
