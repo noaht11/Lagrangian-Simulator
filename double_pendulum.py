@@ -451,6 +451,57 @@ class BaseDoublePendulumBehavior(DoublePendulumBehavior):
     def energy_potential(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties):
         return np.sum(self.gravity().U(t, state, prop))
 
+# Implementation of a DoublePendulumBehavior that acts as a single fixed pendulum:
+#
+# Single:
+#   => theta1     = theta2      = theta      (we'll use theta to refer to either angle)
+#   => theta1_dot = theta2_dot  = theta_dot  (we'll use theta_dot to refer to either angular velocity)
+#
+# Fixed:
+#   => q = 0
+#   => q_dot = 0
+#
+# The single fixed pendulum is easiest to solve in the following state space (y vector):
+#   [
+#     theta,
+#     theta_dot
+#   ]
+#
+class SingleFixedPendulumBehavior(BaseDoublePendulumBehavior):
+
+    def state_to_y(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+        # Verify that the current state is valid for a single pendulum
+        # (i.e. angles and angular velocities must be the same for both arms)
+        # TODO check for equivalent angles
+        # assert (state.theta1() == state.theta2())
+        # assert (state.theta1_dot() == state.theta2_dot())
+        assert (state.q() == 0)
+        assert (state.q_dot() == 0)
+
+        # Construct y vector
+        return [state.theta1(), state.theta1_dot()]
+    
+    def y_to_state(self, t: float, y: List[float], prop: DoublePendulum.Properties) -> DoublePendulum.State:
+        return DoublePendulum.State(
+            theta1     = y[0],
+            theta2     = y[0],
+            q          = 0,
+            theta1_dot = y[1],
+            theta2_dot = y[1],
+            q_dot      = 0
+        )
+    
+    def dy_dt(self, t: float, y: List[float], prop: DoublePendulum.Properties) -> List[float]:
+        L = prop.L() * 2 # We're treating a Double Pendulum like a single one, so L -> 2L
+        d = prop.d() * 2 # We're treating a Double Pendulum like a single one, so d -> 2d (since d is proportional to L)
+
+        theta = y[0]
+        theta_dot = y[1]
+
+        theta_dot_dot = scipy.constants.g * L / (2 * (L**2/4 + d**2)) * sin(theta) # TODO make more like double pendulum
+
+        return [theta_dot, theta_dot_dot]
+
 # Implementation of DoublePendulumBehavior that acts as a regular double pendulum with a pivot point free to move in the horizontal direction,
 # and an optional forcing potential
 #
@@ -949,12 +1000,13 @@ class DoublePendulumAnimator:
         self.line_main.set_data(x, y)
 
         # Update elapsed time text
-        self.time_text_main.set_text('time = %.1f s' % self.__simulation.elapsed_time())
+        self.time_text_main.set_text('Time = %.1f s' % self.__simulation.elapsed_time())
 
         # Update energy text
         (potential, kinetic) = self.__simulation.energy()
         total_energy = potential + kinetic
-        self.energy_text.set_text('potential = %7.3f\nkinetic = %7.3f\ntotal = %7.3f' % (potential, kinetic, total_energy))
+        # self.energy_text.set_text('Potential = %7.3f\nKinetic = %7.3f\nTotal Energy = %7.3f' % (potential, kinetic, total_energy))
+        self.energy_text.set_text('Energy = %7.3f' % (total_energy))
 
         # Update q plot
         self.line_q.set_data(self.__simulation.t(), self.__simulation.q())
