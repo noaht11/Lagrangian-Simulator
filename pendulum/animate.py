@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from time import time
 
 import matplotlib.pyplot as plt
@@ -47,11 +49,11 @@ class DoublePendulumAnimator:
 
         # Graph figure
         #self.fig_graph = plt.figure(figsize=(8, 8))
-        self.ax_q = self.fig.add_subplot(212, autoscale_on = True, xlim = (0, 10), ylim = scale_y)
-        self.ax_q.set_xlabel("Time (seconds)")
-        self.ax_q.set_ylabel("q (metres)")
-        self.ax_q.grid()
-        self.line_q, = self.ax_q.plot([], [])
+        self.ax_var = self.fig.add_subplot(212, autoscale_on = True, xlim = self.__simulation.t_tracker().init_range(), ylim = self.__simulation.var_trackers()[0].init_range()) # TODO multiple var trackers
+        self.ax_var.set_xlabel("Time (seconds)")
+        self.ax_var.set_ylabel("q (metres)")
+        self.ax_var.grid()
+        self.line_var, = self.ax_var.plot([], [])
 
         self.__reset()
 
@@ -64,10 +66,28 @@ class DoublePendulumAnimator:
         self.time_text_main.set_text('')
         self.energy_text.set_text('')
 
-        self.line_q.set_data([], [])
+        self.line_var.set_data([], [])
 
         # Required for matplotlib to update
-        return self.line_main, self.time_text_main, self.energy_text, self.line_q
+        return self.line_main, self.time_text_main, self.energy_text, self.line_var
+
+    def __relim(self, ax_min, ax_max, var_tracker: VariableTracker) -> Tuple[float, float, bool]:
+        var_min = var_tracker.min()
+        var_max = var_tracker.max()
+        var_mean = (var_min + var_max) / 2
+
+        changed = False
+
+        # Check min
+        if (var_tracker.min() < ax_min):
+            ax_min = var_mean - ((var_mean - var_min) * 2)
+            changed = True
+        # Check max
+        if (var_tracker.max() > ax_max):
+            ax_max = var_mean + ((var_max - var_mean) * 2)
+            changed = True
+        
+        return (ax_min, ax_max, changed)
 
     # Internal function that performs a single animation step
     def __animate(self, i: int, dt: float, draw_dt: float):
@@ -89,13 +109,23 @@ class DoublePendulumAnimator:
         # self.energy_text.set_text('Potential = %7.3f\nKinetic = %7.3f\nTotal Energy = %7.3f' % (potential, kinetic, total_energy))
         self.energy_text.set_text('Energy = %7.3f' % (total_energy))
 
-        # Update q plot
-        self.line_q.set_data(self.__simulation.t(), self.__simulation.q())
-        self.ax_q.relim()
-        self.ax_q.autoscale_view(True, True, True)
+        # Update variable tracker plot
+        t_tracker = self.__simulation.t_tracker()
+        var_tracker = self.__simulation.var_trackers()[0]
+        self.line_var.set_data(t_tracker.data, var_tracker.data) # TODO For now we only plot the first variable tracker
+        
+        # Possibly change axis limits
+        (cur_x_min, cur_x_max) = self.ax_var.get_xlim()
+        (cur_y_min, cur_y_max) = self.ax_var.get_ylim()
+        (x_min, x_max, x_changed) = self.__relim(cur_x_min, cur_x_max, t_tracker)
+        (y_min, y_max, y_changed) = self.__relim(cur_y_min, cur_y_max, var_tracker)
+        self.ax_var.set_xlim((x_min, x_max))
+        self.ax_var.set_ylim((y_min, y_max))
+        if (x_changed or y_changed):
+            plt.draw()
 
         # Required for matplotlib to update
-        return self.line_main, self.time_text_main, self.energy_text, self.line_q
+        return self.line_main, self.time_text_main, self.energy_text, self.line_var
 
     # Runs and displays an animation of the pendulum
     #

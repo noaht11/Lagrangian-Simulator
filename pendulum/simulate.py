@@ -59,9 +59,30 @@ class ODEINTTimeEvolver(TimeEvolver):
 # SIMULATION
 ###################################################################################################################################################################################
 
+class VariableTracker():
+
+    def __init__(self, init_val: float, init_range: Tuple[float, float], tracker: Callable[[float, DoublePendulum.State, DoublePendulum.Properties, DoublePendulumBehavior], float]):
+        self.data = np.array([init_val])
+        self.__init_range = init_range
+        self.__tracker = tracker
+    
+    def init_range(self) -> Tuple[float, float]:
+        return self.__init_range
+
+    def track(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties, behavior: DoublePendulumBehavior):
+        new_val = self.__tracker(t, state, prop, behavior)
+        self.data = np.append(self.data, new_val)
+    
+    def min(self):
+        return np.min(self.data)
+    
+    def max(self):
+        return np.max(self.data)
+
+
 # Class that manages the evolution of the double pendulum over time
 class DoublePendulumSimulation:
-    def __init__(self, pendulum: DoublePendulum, behavior: DoublePendulumBehavior, time_evolver: TimeEvolver):
+    def __init__(self, pendulum: DoublePendulum, behavior: DoublePendulumBehavior, time_evolver: TimeEvolver, var_trackers: List[float] = []):
         self.__pendulum = pendulum
         self.__behavior = behavior
         self.__time_evolver = time_evolver
@@ -69,8 +90,8 @@ class DoublePendulumSimulation:
         self.init_state = self.__pendulum.state()
         self.__elapsed_time = 0
 
-        self.__t = np.array(0)
-        self.__q = np.array(pendulum.state().q())
+        self.__t_tracker = VariableTracker(0, (0, 10), lambda t, state, prop, behavior: t)
+        self.__var_trackers = var_trackers
 
     def pendulum(self) -> DoublePendulum: return self.__pendulum
     def behavior(self) -> DoublePendulumBehavior: return self.__behavior
@@ -78,8 +99,8 @@ class DoublePendulumSimulation:
     
     def elapsed_time(self) -> float: return self.__elapsed_time
 
-    def q(self) -> List[float]: return self.__q
-    def t(self) -> List[float]: return self.__t
+    def t_tracker(self) -> VariableTracker: return self.__t_tracker
+    def var_trackers(self) -> List[VariableTracker]: return self.__var_trackers
 
     # Calculates the current energy (potential and kinetic) of the pendulum
     #
@@ -102,9 +123,10 @@ class DoublePendulumSimulation:
         # Update elapsed time
         self.__elapsed_time += dt
 
-        # Update graph arrays
-        self.__t = np.append(self.__t, self.__elapsed_time)
-        self.__q = np.append(self.__q, self.pendulum().state().q())
+        # Update variable trackers
+        self.__t_tracker.track(self.__elapsed_time, self.pendulum().state(), self.pendulum().prop(), self.behavior())
+        for tracker in self.__var_trackers:
+            tracker.track(self.__elapsed_time, self.pendulum().state(), self.pendulum().prop(), self.behavior())
 
     # Progresses the simulation up to absolute time, t_final, in steps of dt
     def step_until(self, dt: float, t_final: float):

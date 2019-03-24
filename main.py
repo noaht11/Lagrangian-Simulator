@@ -34,10 +34,10 @@ def run_forcing(theta1: float = 0, theta2: float = 0, forcing_function: QForcing
         ForcedQDoublePendulumBehavior(forcing_function, potential)
     )
 
-def run(pendulum: DoublePendulum, behavior: DoublePendulumBehavior):
+def run(pendulum: DoublePendulum, behavior: DoublePendulumBehavior, var_trackers: List[VariableTracker] = []):
     # Setup solvers
     time_evolver = ODEINTTimeEvolver()
-    simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver)
+    simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver, var_trackers)
 
     # Simulation parameters
     sim_dt  = 1.0 / 50
@@ -124,7 +124,8 @@ if __name__ == "__main__":
 
     run(
         setup_pendulum(theta1 = theta_0, theta2 = theta_0, L = L, m = m, d = d, R = R),
-        GeneralSinglePendulumBehavior(forcing_potential = forcing_potential, d_converter = d_converter_cylinder)
+        GeneralSinglePendulumBehavior(forcing_potential = forcing_potential, d_converter = d_converter_cylinder),
+        [VariableTracker(0, (0, 1), lambda t, state, prop, behavior: force(t, prop))]
         # GeneralDoublePendulumBehavior(forcing_potential = forcing_potential)
     )
 
