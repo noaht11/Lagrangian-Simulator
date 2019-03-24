@@ -47,7 +47,7 @@ class DoublePendulumAnimator:
 
         # Graph figure
         #self.fig_graph = plt.figure(figsize=(8, 8))
-        self.ax_q = self.fig.add_subplot(212, autoscale_on = True)
+        self.ax_q = self.fig.add_subplot(212, autoscale_on = True, xlim = (0, 10), ylim = scale_y)
         self.ax_q.set_xlabel("Time (seconds)")
         self.ax_q.set_ylabel("q (metres)")
         self.ax_q.grid()

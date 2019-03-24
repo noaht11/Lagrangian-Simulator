@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Callable
 
+import numpy as np
 import scipy.constants
 
 from pendulum.core import *
@@ -155,7 +156,7 @@ class HarmonicOscillatorPotential(BasePotential):
             self.__q_k      * (state.q()      - self.__q_eq     )
         ]
 
-FIXED_APPROX_COEFF = 1E2
+FIXED_APPROX_COEFF = 1E5
 
 # A potential that approximately fixes q (the pivot point) in place
 #
@@ -186,4 +187,24 @@ class SinglePendulumPotential(BasePotential):
             FIXED_APPROX_COEFF * (state.theta1() - state.theta2()),
             FIXED_APPROX_COEFF * (state.theta2() - state.theta1()),
             0
+        ]
+
+# A potential that is equivalent to a force acting on q (that is independent of q)
+class ForceQPotential(BasePotential):
+
+    def __init__(self, force: Callable[[float, DoublePendulum.Properties], float]):
+        self.__force = force
+
+    def U(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+        return [
+            0,
+            0,
+            -1*self.__force(t, prop) * state.q()
+        ]
+    
+    def dU_dcoord(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+        return [
+            0,
+            0,
+            -1*self.__force(t, prop)
         ]

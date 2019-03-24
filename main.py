@@ -74,42 +74,16 @@ class TestPotential1(BasePotential):
             -1*(self.__k1 * state.theta1() + self.__k2 * state.theta1_dot() + self.__k3 * state.theta2() + self.__k4 * state.theta2_dot())
         ]
 
-class TestPotential2():
-    def __init__(self, w: float, B: float, d_converter: Callable[[DoublePendulum.Properties], float]):
-        self.w = w
-        self.B = B
-        self.__d_converter = d_converter
-
-        self.__g = scipy.constants.g
-
-    def __force(self, t: float, prop: DoublePendulum.Properties) -> float:
-        g = self.__g
+def test_force_1(t: float, prop: DoublePendulum.Properties, w: float, B: float, d_converter: Callable[[DoublePendulum.Properties], float]):
+        g = scipy.constants.g
 
         L = prop.L() * 2
         m = prop.m() * 2
 
-        w = self.w
-        B = self.B
-
-        I = m * self.__d_converter(prop)**2
+        I = m * d_converter(prop)**2
         I_R = I + m * (L/2)**2
 
         return -1*w**2*B/(L/2) * (1 + I_R * w**2 / (m*g*(L/2))) * cos(w*t)
-
-    def U(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
-        return [
-            0,
-            0,
-            self.__force(t, prop) * state.q()
-        ]
-    
-    def dU_dcoord(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
-        print(self.__force(t, prop))
-        return [
-            0,
-            0,
-            self.__force(t, prop)
-        ]
 
 
 ###################################################################################################################################################################################
@@ -131,24 +105,27 @@ def d_converter_cylinder(prop):
     return d_cyclinder(L, R, m)
 
 if __name__ == "__main__":
+    # Universal constants
     g = scipy.constants.g
 
+    # Pendulum properties
     L = 0.20
     R = 0.065
     m = 0.072
-
     d = d_cyclinder(L, R, m)
 
+    # Forcing parameters
     theta_0 = pi/20
-
     B = -5
     w = sqrt(-1*theta_0*m*g*(L/2)/B)
 
-    forcing_potential = TestPotential2(w = w, B = B, d_converter = d_converter_cylinder)
+    force = lambda t, prop: test_force_1(t, prop, w, B, d_converter_cylinder)
+    forcing_potential = ForceQPotential(force)
 
     run(
         setup_pendulum(theta1 = theta_0, theta2 = theta_0, L = L, m = m, d = d, R = R),
-        GeneralSinglePendulumBehavior(forcing_potential = ZeroPotential(), d_converter = d_converter_cylinder)
+        GeneralSinglePendulumBehavior(forcing_potential = forcing_potential, d_converter = d_converter_cylinder)
+        # GeneralDoublePendulumBehavior(forcing_potential = forcing_potential)
     )
 
 
