@@ -6,9 +6,12 @@ from pendulum.potential import *
 from pendulum.simulate import *
 from pendulum.animate import *
 
-def setup_pendulum(theta1: float = 0, theta2: float = 0, q: float = 0, theta1_dot: float = 0, theta2_dot: float = 0, q_dot: float = 0, L: float = 0.1, m: float = 0.1):
-    d = sqrt(1/12)*L # m
-    pendulum = DoublePendulum(DoublePendulum.Properties(L, m, d), DoublePendulum.State(
+###################################################################################################################################################################################
+# RUN UTILITIES
+###################################################################################################################################################################################
+
+def setup_pendulum(theta1: float = 0, theta2: float = 0, q: float = 0, theta1_dot: float = 0, theta2_dot: float = 0, q_dot: float = 0, L: float = 0.1, m: float = 0.1, d: float = 1, **kwargs):
+    pendulum = DoublePendulum(DoublePendulum.Properties(L, m, d, **kwargs), DoublePendulum.State(
         theta1     = theta1,
         theta2     = theta2,
         q          = q,
@@ -30,7 +33,26 @@ def run_forcing(theta1: float = 0, theta2: float = 0, forcing_function: QForcing
         ForcedQDoublePendulumBehavior(forcing_function, potential)
     )
 
-class TestPotential(BasePotential):
+def run(pendulum: DoublePendulum, behavior: DoublePendulumBehavior):
+    # Setup solvers
+    time_evolver = ODEINTTimeEvolver()
+    simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver)
+
+    # Simulation parameters
+    sim_dt  = 1.0 / 50
+    draw_dt = 1.0 / 50
+
+    # Run animated simulation
+    animator = DoublePendulumAnimator(simulation)
+    animator.init()
+    animator.run(sim_dt, draw_dt, 1000)
+
+
+###################################################################################################################################################################################
+# TEST POTENTIALS
+###################################################################################################################################################################################
+
+class TestPotential1(BasePotential):
     def __init__(self, k1: float = 0, k2: float = 0, k3: float = 0, k4: float = 0):
         self.__k1 = k1
         self.__k2 = k2
@@ -51,24 +73,62 @@ class TestPotential(BasePotential):
             -1*(self.__k1 * state.theta1() + self.__k2 * state.theta1_dot() + self.__k3 * state.theta2() + self.__k4 * state.theta2_dot())
         ]
 
-def run(pendulum: DoublePendulum, behavior: DoublePendulumBehavior):
-    # Setup solvers
-    time_evolver = ODEINTTimeEvolver()
-    simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver)
+import scipy.constants
 
-    # Simulation parameters
-    sim_dt  = 1.0 / 50
-    draw_dt = 1.0 / 50
+class TestPotential2():
+    def __init__(self, w: float, B: float):
+        self.w = w
+        self.B = B
 
-    # Run animated simulation
-    animator = DoublePendulumAnimator(simulation)
-    animator.init()
-    animator.run(sim_dt, draw_dt, 1000)
+    def U(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+        L = prop.L() * 2
+        m = prop.m() * 2
+
+        w = self.w
+        B = self.B
+
+        return [
+            0,
+            0,
+            -1*self.w**2*self.B/prop.L * state.q()
+        ]
+    
+    def dU_dcoord(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+        return [
+            0,
+            0,
+            -1*(self.__k1 * state.theta1() + self.__k2 * state.theta1_dot() + self.__k3 * state.theta2() + self.__k4 * state.theta2_dot())
+        ]
+
+
+###################################################################################################################################################################################
+# MAIN
+###################################################################################################################################################################################
+
+def I_cylinder(L, R, m):
+    return 1/4*m*R**2 + 1/12*m*L**2
+
+def d_cyclinder(L, R, m):
+    I = I_cylinder(L, R, m)
+    return sqrt(I/m)
+
+def d_converter_cylinder(prop):
+    L = prop.L() * 2
+    R = prop.extras()["R"]
+    m = prop.m() * 2
+
+    return d_cyclinder(L, R, m)
 
 if __name__ == "__main__":
+    L = 0.20
+    R = 0.065
+    m = 0.072
+
+    d = d_cyclinder(L, R, m)
+
     run(
-        setup_pendulum(theta1 = pi/10, theta2 = pi/10),
-        GeneralSinglePendulumBehavior(d_converter = lambda prop: prop.d() * 2)
+        setup_pendulum(theta1 = pi/10, theta2 = pi/10, L = L, m = m, d = d, R = R),
+        GeneralSinglePendulumBehavior(d_converter = d_converter_cylinder)
     )
 
 

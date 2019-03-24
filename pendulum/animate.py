@@ -25,7 +25,7 @@ class DoublePendulumAnimator:
 
         # Define how much larger the plot will be than the size of the pendulum
         scale_margin_factor_x = 6
-        scale_margin_factor_y = 3
+        scale_margin_factor_y = 2
         L = self.__simulation.pendulum().prop().L()
         scale_x = (-1 * scale_margin_factor_x * L, scale_margin_factor_x * L)
         scale_y = (-1 * scale_margin_factor_y * L, scale_margin_factor_y * L)

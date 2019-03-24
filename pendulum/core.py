@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Callable
+from typing import List, Tuple, Callable, Dict
 
 from math import sin, cos, pi, inf, exp
 
@@ -64,14 +64,16 @@ class DoublePendulum:
         #   m             =   mass of each arm
         #   d             =   moment of inertia factor such that I = m * d^2
         #
-        def __init__(self, L: float = 1.0, m: float = 1.0, d: float = 1.0):
+        def __init__(self, L: float = 1.0, m: float = 1.0, d: float = 1.0, **kwargs):
             self.__L = L
             self.__m = m
             self.__d = d
+            self.__extras = kwargs
         
         def L(self) -> float: return self.__L
         def m(self) -> float: return self.__m
         def d(self) -> float: return self.__d
+        def extras(self) -> Dict[str, float]: return self.__extras
 
     # Initializes a new DoublePendulum with the provided properties and initial state
     #
