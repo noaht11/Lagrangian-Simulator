@@ -63,7 +63,7 @@ class DoublePendulum:
         #
         #   L             =   length of each arm
         #   m             =   mass of each arm
-        #   d             =   moment of inertia factor such that I = 1/2 * m * d^2
+        #   d             =   moment of inertia factor such that I = m * d^2
         #
         def __init__(self, L: float = 1.0, m: float = 1.0, d: float = 1.0):
             self.__L = L
@@ -448,7 +448,7 @@ class BaseDoublePendulumBehavior(DoublePendulumBehavior):
         return BaseDoublePendulumBehavior.__gravity
     
     # Implementation of energy_potential that just returns the potential energy due to gravity
-    def energy_potential(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties):
+    def energy_potential(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> float:
         return np.sum(self.gravity().U(t, state, prop))
 
 # Implementation of a DoublePendulumBehavior that acts as a single fixed pendulum:
@@ -532,7 +532,7 @@ class GeneralDoublePendulumBehavior(BaseDoublePendulumBehavior):
     def __init__(self, forcing_potential: Potential = ZeroPotential()):
         self.__forcing_potential = forcing_potential
 
-    # There is a set of 3 linear equations (3 knowns, 3 unknowns) that relate the following four quantities:
+    # There is a set of 3 linear equations (3 knowns, 3 unknowns) that relate the following six quantities:
     #
     #   theta1_dot
     #   theta2_dot
@@ -555,7 +555,7 @@ class GeneralDoublePendulumBehavior(BaseDoublePendulumBehavior):
             [ 3*L*cos(theta1)           , L*cos(theta2)             , 4               ]
         ]) * 1/2*m
 
-    def _p_coord_coord_dot_matrix(self, theta1: float, theta2:float, L: float, m: float, d: float) -> List[List[float]]:
+    def _p_coord_coord_dot_matrix(self, theta1: float, theta2: float, L: float, m: float, d: float) -> List[List[float]]:
         return np.linalg.inv(self._coord_dot_p_coord_matrix(theta1, theta2, L, m, d))
 
     # Transforms a vector of
@@ -594,11 +594,11 @@ class GeneralDoublePendulumBehavior(BaseDoublePendulumBehavior):
         matrix = self._p_coord_coord_dot_matrix(theta1, theta2, L, m, d)
         return np.matmul(matrix, p_coord)
 
-    # Calculates p_theta1_dot given the parameters of the currents state and the potential
+    # Calculates p_theta1_dot given the parameters of the current state and the potential
     def _p_theta1_dot(self, theta1: float, theta2: float, theta1_dot: float, theta2_dot: float, q_dot: float, potential_term: float, L: float, m: float) -> float:
         return 1/2*m * (-3*q_dot*L*theta1_dot*sin(theta1) - L**2*theta1_dot*theta2_dot*sin(theta1 - theta2)) - potential_term
 
-    # Calculates p_theta2_dot given the parameters of the currents state and the potential
+    # Calculates p_theta2_dot given the parameters of the current state and the potential
     def _p_theta2_dot(self, theta1: float, theta2: float, theta1_dot: float, theta2_dot: float, q_dot: float, potential_term: float, L: float, m: float) -> float:
         return 1/2*m * (-1*q_dot*L*theta2_dot*sin(theta2) + L**2*theta1_dot*theta2_dot*sin(theta1 - theta2)) - potential_term
 
@@ -675,8 +675,155 @@ class GeneralDoublePendulumBehavior(BaseDoublePendulumBehavior):
 
         return [theta1_dot, theta2_dot, q_dot, p_theta1_dot, p_theta2_dot, p_q_dot]
     
-    def energy_potential(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties):
+    def energy_potential(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> float:
         return np.sum(self.gravity().U(t, state, prop) + self.__forcing_potential.U(t, state, prop))
+
+class GeneralSinglePendulumBehavior(BaseDoublePendulumBehavior):
+    # Instantiates a GeneralSinglePendulumBehavior with the provided (optional) forcing potential)
+    def __init__(self, forcing_potential: Potential = ZeroPotential(), d_converter: Callable[[DoublePendulum.Properties], float] = lambda prop: prop.d()):
+        self.__forcing_potential = forcing_potential
+        self.__d_converter = d_converter
+
+    # There is a set of 2 linear equations (2 knowns, 2 unknowns) that relate the following four quantities:
+    #
+    #   theta_dot
+    #   q_dot
+    #   p_theta
+    #   p_q
+    #
+    # The coefficients for these equations are functions of theta, L and d and are returned by this method
+    # in the form of a 2x2 matrix, that satsifies the following equation
+    #  _       _   _           _         _         _
+    # |  A1 A2  | |  theta_dot  |   =   |  p_theta  |
+    # |_ B1 B2 _| |_ q_dot     _|       |_ p_q     _|
+    #
+    def _coord_dot_p_coord_matrix(self, theta: float, L: float, m: float, d: float) -> List[List[float]]:
+        return np.array([
+            [ L**2/2 + 2*d**2 , L*cos(theta) ],
+            [ L*cos(theta)    , 2            ]
+        ]) * 1/2*m
+
+    def _p_coord_coord_dot_matrix(self, theta: float, L: float, m: float, d: float) -> List[List[float]]:
+        return np.linalg.inv(self._coord_dot_p_coord_matrix(theta, L, m, d))
+
+    # Transforms a vector of
+    #    _           _ 
+    #   |  theta_dot  |
+    #   |_ q_dot     _|
+    #
+    # to a vector
+    #    _         _
+    #   |  p_theta  |
+    #   |_ p_q     _|
+    #
+    # using theta1, theta2, L and d
+    #
+    def _coord_dot_to_p_coord(self, coord_dot: List[float], theta: float, L: float, m: float, d: float) -> List[float]:
+        matrix = self._coord_dot_p_coord_matrix(theta, L, m, d)
+        return np.matmul(matrix, coord_dot)
+
+    # Transforms a vector of
+    #    _         _ 
+    #   |  p_theta  |
+    #   |_ p_q     _|
+    #
+    # to a vector
+    #    _           _
+    #   |  theta_dot  |
+    #   |_ q_dot     _|
+    #
+    # using theta1, theta2, L and d
+    #
+    def _p_coord_to_coord_dot(self, p_coord: List[float], theta: float, L: float, m: float, d: float) -> List[float]:
+        matrix = self._p_coord_coord_dot_matrix(theta, L, m, d)
+        return np.matmul(matrix, p_coord)
+
+    # Calculates p_theta_dot given the parameters of the current state and the potential
+    def _p_theta_dot(self, theta: float, theta_dot: float, q_dot: float, potential_term: float, L: float, m: float) -> float:
+        return 1/2*m * (-1*q_dot*L*theta_dot*sin(theta)) - potential_term
+
+    # Calculates the net gravitational effect for the whole pendulum
+    # Can be applied to the actual potential or the derivative of the potential that is used in the generalized force
+    def net_gravity(self, gravity_terms: List[float]) -> float: 
+        return (gravity_terms[0] + gravity_terms[1]) / 2
+
+    def state_to_y(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+        # Construct y vector
+        L = prop.L() * 2
+        m = prop.m() * 2
+        d = self.__d_converter(prop)
+
+        # assert(state.theta1() == state.theta2()) TODO check for equivalent angles
+        assert(state.theta1_dot() == state.theta2_dot())
+
+        theta     = state.theta1()
+        q         = state.q()
+        theta_dot = state.theta1_dot()
+        q_dot     = state.q_dot()
+
+        p_coord = self._coord_dot_to_p_coord([theta_dot, q_dot], theta, L, m, d)
+
+        return [theta, q, p_coord[0], p_coord[1]]
+    
+    def y_to_state(self, t: float, y: List[float], prop: DoublePendulum.Properties) -> DoublePendulum.State:
+        L = prop.L() * 2
+        m = prop.m() * 2
+        d = self.__d_converter(prop)
+
+        theta   = y[0]
+        q       = y[1]
+        p_theta = y[2]
+        p_q     = y[3]
+
+        coord_dot = self._p_coord_to_coord_dot([p_theta, p_q], theta, L, m, d)
+
+        return DoublePendulum.State(
+            theta1     = theta,
+            theta2     = theta,
+            q          = q,
+            theta1_dot = coord_dot[0],
+            theta2_dot = coord_dot[0],
+            q_dot      = coord_dot[1]
+        )
+    
+    def dy_dt(self, t: float, y: List[float], prop: DoublePendulum.Properties) -> List[float]:
+        L = prop.L() * 2
+        m = prop.m() * 2
+        d = self.__d_converter(prop)
+
+        # Local variables for the y vector elements
+        theta   = y[0]
+        q       = y[1]
+        p_theta = y[2]
+        p_q     = y[3]
+
+        # Calculate the time derivatives of each coordinate from the generalized momenta
+        coord_dot = self._p_coord_to_coord_dot([p_theta, p_q], theta, L, m, d)
+        theta_dot = coord_dot[0]
+        q_dot     = coord_dot[1]
+
+        # Store everything is a state instance for passing to functions
+        state = DoublePendulum.State(theta, theta, q, theta_dot, theta_dot, q_dot)
+
+        # Take into account potential due to gravity and our forcing potential
+        gravity_terms = self.gravity().dU_dcoord(t, state, prop)
+        forcing_terms = self.__forcing_potential.dU_dcoord(t, state, prop)
+
+        gravity_theta = self.net_gravity(gravity_terms)
+
+        assert(forcing_terms[0] == forcing_terms[1]) # TODO is this necessarily true
+
+        # Calculate the time derivatives of the generalized momenta
+        p_theta_dot = self._p_theta_dot(theta, theta_dot, q_dot, gravity_theta + forcing_terms[0], L, m)
+        p_q_dot      = 0 - (gravity_terms[2] + forcing_terms[2])
+
+        return [theta_dot, q_dot, p_theta_dot, p_q_dot]
+    
+    def energy_potential(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> float:
+        gravity_terms = self.gravity().U(t, state, prop)
+        forcing_terms = self.__forcing_potential.U(t, state, prop)
+        return self.net_gravity(gravity_terms) + gravity_terms[2] + np.sum(forcing_terms)
+    
 
 # Abstract Base Class for a forcing function on the coordinate q
 #

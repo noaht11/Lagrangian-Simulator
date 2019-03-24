@@ -53,8 +53,8 @@ def run(pendulum: DoublePendulum, behavior: DoublePendulumBehavior):
     simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver)
 
     # Simulation parameters
-    sim_dt  = 1.0 / 100
-    draw_dt = 1.0 / 100
+    sim_dt  = 1.0 / 50
+    draw_dt = 1.0 / 50
 
     # Run animated simulation
     animator = DoublePendulumAnimator(simulation)
@@ -64,7 +64,7 @@ def run(pendulum: DoublePendulum, behavior: DoublePendulumBehavior):
 if __name__ == "__main__":
     run(
         setup_pendulum(theta1 = pi/10, theta2 = pi/10),
-        SingleFixedPendulumBehavior()
+        GeneralSinglePendulumBehavior(d_converter = lambda prop: prop.d() * 2)
     )
 
 
