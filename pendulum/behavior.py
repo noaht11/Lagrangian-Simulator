@@ -252,6 +252,7 @@ class GeneralDoublePendulumBehavior(BaseDoublePendulumBehavior):
 
 class GeneralSinglePendulumBehavior(BaseDoublePendulumBehavior):
     # Instantiates a GeneralSinglePendulumBehavior with the provided (optional) forcing potential)
+    # d_converter should be a function that returns the d value (I = m*d**2) for the whole pendulum, given the properties corresponding to a single arm
     def __init__(self, forcing_potential: Potential = ZeroPotential(), d_converter: Callable[[DoublePendulum.Properties], float] = lambda prop: prop.d()):
         self.__forcing_potential = forcing_potential
         self.__d_converter = d_converter
