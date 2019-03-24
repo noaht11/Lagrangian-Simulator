@@ -1,6 +1,10 @@
-from double_pendulum import *
-
 from math import sin, cos, sqrt
+
+from pendulum.core import *
+from pendulum.behavior import *
+from pendulum.potential import *
+from pendulum.simulate import *
+from pendulum.animate import *
 
 def setup_pendulum(theta1: float = 0, theta2: float = 0, q: float = 0, theta1_dot: float = 0, theta2_dot: float = 0, q_dot: float = 0, L: float = 0.1, m: float = 0.1):
     d = sqrt(1/12)*L # m
