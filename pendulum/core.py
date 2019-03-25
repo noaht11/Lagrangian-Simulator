@@ -21,8 +21,8 @@ def neg_pi_to_pi(theta: float) -> float:
 # PENDULUM DEFINITION
 ###################################################################################################################################################################################
 
-class Pendulum:
-    """Represents the properties, math, and state of a single pendulum
+class CompoundPendulum:
+    """Represents the properties, math, and state of a single compound pendulum (a pendulum whose mass is evenly distributed along its length)
 
     The state of the pendulum is represented numerically while the math governing the energies of the pendulum
     is represented symbolically using SymPy expressions.
