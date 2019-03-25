@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     L = Lagrangian(pendulum.U(t), pendulum.T(t))
 
-    (forces, momenta) = L.generalized_forces_momenta(t, [(x, sp.S.Zero), (y, sp.S.Zero)], [theta(t)])
+    (forces, momenta) = L.generalized_forces_momenta(t, [theta], [(x, sp.S.Zero), (y, sp.S.Zero)])
 
     sp.pprint(forces[0])
     print("")

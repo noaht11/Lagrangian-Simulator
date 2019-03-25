@@ -1,4 +1,4 @@
-from typing import List, Tuple, Callable, Dict
+from typing import List, Tuple, Dict
 
 import sympy as sp
 import scipy.constants
