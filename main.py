@@ -1,4 +1,4 @@
-from math import sin, cos, sqrt
+from math import sin, cos, sqrt, exp
 import scipy.constants
 
 from pendulum.core import *
@@ -75,16 +75,18 @@ class TestPotential1(BasePotential):
         ]
 
 def test_force_1(t: float, prop: DoublePendulum.Properties, w: float, B: float, d_converter: Callable[[DoublePendulum.Properties], float]):
-        g = scipy.constants.g
+    g = scipy.constants.g
 
-        L = prop.L() * 2
-        m = prop.m() * 2
+    L = prop.L() * 2
+    m = prop.m() * 2
 
-        I = m * d_converter(prop)**2
-        I_R = I + m * (L/2)**2
+    I = m * d_converter(prop)**2
+    I_R = I + m * (L/2)**2
 
-        return -1*w**2*B/(L/2) * (1 + I_R * w**2 / (m*g*(L/2))) * cos(w*t)
+    return -1*w**2*B/(L/2) * (1 + I_R * w**2 / (m*g*(L/2))) * cos(w*t)
 
+def test_force_2(t: float, prop: DoublePendulum.Properties, A: float, w_c: float, w_m: float, phi: float):
+    return A * -1*exp(-1*sin(w_c*t - phi)) * (w_c*cos(w_c*t)*cos(w_m*t - phi) + w_m*sin(w_m*t))
 
 ###################################################################################################################################################################################
 # MAIN
@@ -119,14 +121,24 @@ if __name__ == "__main__":
     B = -5
     w = sqrt(-1*theta_0*m*g*(L/2)/B)
 
-    force = lambda t, prop: test_force_1(t, prop, w, B, d_converter_cylinder)
+    # force = lambda t, prop: test_force_1(t, prop, w, B, d_converter_cylinder)
+    force = lambda t, prop: test_force_2(t, prop, -0.01*0, 3, 50, -3*pi/2)
     forcing_potential = ForceQPotential(force)
 
+    # variable trackers
+    force_tracker = VariableTracker(0, (-1, 1), lambda t, state, prop, behavior: force(t, prop))
+    q_tracker = VariableTracker(0, (-1, 1), lambda t, state, prop, behavior: state.q())
+
+    # Pendulum and Behavior
+    pendulum = setup_pendulum(theta1 = theta_0, theta2 = theta_0, L = L, m = m, d = d, R = R)
+    behavior = GeneralSinglePendulumBehavior(forcing_potential = forcing_potential, d_converter = d_converter_cylinder)
+
+
+    # Run animation
     run(
-        setup_pendulum(theta1 = theta_0, theta2 = theta_0, L = L, m = m, d = d, R = R),
-        GeneralSinglePendulumBehavior(forcing_potential = forcing_potential, d_converter = d_converter_cylinder),
-        [VariableTracker(0, (0, 1), lambda t, state, prop, behavior: force(t, prop))]
-        # GeneralDoublePendulumBehavior(forcing_potential = forcing_potential)
+        pendulum,
+        behavior,
+        [q_tracker]
     )
 
 

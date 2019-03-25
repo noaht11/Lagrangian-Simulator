@@ -51,7 +51,7 @@ class DoublePendulumAnimator:
         #self.fig_graph = plt.figure(figsize=(8, 8))
         self.ax_var = self.fig.add_subplot(212, autoscale_on = True, xlim = self.__simulation.t_tracker().init_range(), ylim = self.__simulation.var_trackers()[0].init_range()) # TODO multiple var trackers
         self.ax_var.set_xlabel("Time (seconds)")
-        self.ax_var.set_ylabel("q (metres)")
+        self.ax_var.set_ylabel("Variable")
         self.ax_var.grid()
         self.line_var, = self.ax_var.plot([], [])
 
