@@ -1,10 +1,9 @@
-from abc import ABC, abstractmethod
 from typing import List, Tuple, Callable, Dict
 
 import sympy as sp
 import scipy.constants
 
-from math import sin, cos, pi, inf, exp
+from math import pi
 
 sp.init_printing()
 
@@ -144,72 +143,91 @@ class Pendulum:
         )
         self._state = adj_state
 
-    def start(self) -> Tuple[sp.Expr, sp.Expr]:
+    def start(self, t: sp.Symbol) -> Tuple[sp.Expr, sp.Expr]:
         """Generates symbolic expressions for the coordinates of the start endpoint of the pendulum
         
+        Arguments:
+            `t` : a symbol for the time variable
+
         Returns: Tuple of (x, y) where each coordinate is a symbolic expression
         """
         return (self.sym.x, self.sym.y)
 
-    def com(self) -> Tuple[sp.Expr, sp.Expr]:
+    def com(self, t: sp.Symbol) -> Tuple[sp.Expr, sp.Expr]:
         """Generates symbolic expressions for the coordinates of the centre of mass of the pendulum
 
-        Returns: Tuple of (x_COM, y_COM) where each coordinate is a symbolic expression
+        Arguments:
+            `t` : a symbol for the time variable
+
+        Returns:
+            Tuple of (x_COM, y_COM) where each coordinate is a symbolic expression
         """
         L = self.prop.L
+        x = self.sym.x
+        y = self.sym.y
         theta = self.sym.theta
 
-        x_com = self.sym.x + L/2 * sp.sin(theta)
-        y_com = self.sym.y + L/2 * sp.cos(theta)
+        x_com = x(t) + L/2 * sp.sin(theta(t))
+        y_com = y(t) + L/2 * sp.cos(theta(t))
 
         return (x_com, y_com)
 
-    def end(self) -> Tuple[sp.Expr, sp.Expr]:
+    def end(self, t: sp.Symbol) -> Tuple[sp.Expr, sp.Expr]:
         """Generates symbolic expressions for the coordinates of the end endpoint of the pendulum
 
-        Returns: Tuple of (x_end, y_end) where each coordinate is a symbolic expression
+        Arguments:
+            `t` : a symbol for the time variable
+
+        Returns:
+            Tuple of (x_end, y_end) where each coordinate is a symbolic expression
         """
         L = self.prop.L
+        x = self.sym.x
+        y = self.sym.y
         theta = self.sym.theta
 
-        x_end = self.sym.x + L * sp.sin(theta)
-        y_end = self.sym.y + L * sp.cos(theta)
+        x_end = x(t) + L * sp.sin(theta(t))
+        y_end = y(t) + L * sp.cos(theta(t))
+
         return (x_end, y_end)
 
-    def energy_potential(self) -> sp.Expr:
+    def U(self, t: sp.Symbol) -> sp.Expr:
         """Generates a symbolic expression for the potential energy of the pendulum
 
         The zero of potential energy is taken to be at a y coordinate of 0
+
+        Arguments:
+            `t` : a symbol for the time variable
 
         Returns:
             A symbolic expression for the potential energy of the pendulum
         """
         m = self.prop.m
-        _, y_com = self.com()
+        _, y_com = self.com(t)
 
         g = scipy.constants.g
 
         return m * g * y_com
 
-    def energy_kinetic(self, t: sp.Symbol) -> sp.Expr:
+    def T(self, t: sp.Symbol) -> sp.Expr:
         """Generates and returns a symbolic expression for the kinetic energy of the pendulum
 
         This takes into account both the translation and rotational kinetic energies
 
         Arguments:
-            `t` : a symbol for the time variable, time derivatives will be taken against this symbol
+            `t` : a symbol for the time variable
 
         Returns:
             A symbolic expression for the kinetic energy of the pendulum
         """
         m = self.prop.m
         I = self.prop.I
-        theta = self.sym.theta
-        x_com, y_com = self.com()
+        theta = self.sym.theta(t)
+        x_com, y_com = self.com(t)
 
-        x_dot = sp.Derivative(x_com, t)
-        y_dot = sp.Derivative(y_com, t)
-        theta_dot = sp.Derivative(theta, t)
+        x_dot = sp.diff(x_com, t)
+        y_dot = sp.diff(y_com, t)
+        theta_dot = sp.diff(theta, t)
 
         T_translation = 1/2*m * (x_dot**2 + y_dot**2)
         T_rotation = 1/2*I * theta_dot**2
