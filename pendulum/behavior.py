@@ -233,7 +233,7 @@ class GeneralDoublePendulumBehavior(BaseDoublePendulumBehavior):
         theta2_dot = coord_dot[1]
         q_dot      = coord_dot[2]
 
-        # Store everything is a state instance for passing to functions
+        # Store everything in a state instance for passing to functions
         state = DoublePendulum.State(theta1, theta2, q, theta1_dot, theta2_dot, q_dot)
 
         # Take into account potential due to gravity and our forcing potential
@@ -375,7 +375,7 @@ class GeneralSinglePendulumBehavior(BaseDoublePendulumBehavior):
         theta_dot = coord_dot[0]
         q_dot     = coord_dot[1]
 
-        # Store everything is a state instance for passing to functions
+        # Store everything in a state instance for passing to functions
         state = DoublePendulum.State(theta, theta, q, theta_dot, theta_dot, q_dot)
 
         # Take into account potential due to gravity and our forcing potential
@@ -425,22 +425,11 @@ class FixedQForcingFunction(QForcingFunction):
     def q(self, t: float) -> float: return self.__fixed_q
     def dq_dt(self, t: float) -> float: return 0
 
-# A sinusoidal forcing function with a configurable amplitude, frequency and phase
-class SinusoidalForcing(QForcingFunction):
-    
-    def __init__(self, amplitude: float = 1, frequency: float = 1, phase = 0, damping = 0):
-        self.__amplitude = amplitude
-        self.__frequency = frequency
-        self.__phase = phase
-        self.__damping = damping
-
-    def q(self, t: float) -> float: return self.__amplitude * exp(-1*self.__damping * t) * sin(2*pi*self.__frequency*t - self.__phase)
-    def dq_dt(self, t: float) -> float: return self.__amplitude * exp(-1*self.__damping * t) * (-1*self.__damping * sin(2*pi*self.__frequency*t - self.__phase) +  2*pi*self.__frequency * cos(2*pi*self.__frequency*t - self.__phase))
-
 import sympy as sym
 from sympy import symbols, lambdify, diff
 sym.init_printing()
 
+# Base class for forcing functions defined by a symbolic algebraic function
 class SymbolicForcing(QForcingFunction):
 
     def __init__(self, q_sym):
@@ -451,6 +440,13 @@ class SymbolicForcing(QForcingFunction):
     def q(self, t: float) -> float: return self.__q_sym(t)
     def dq_dt(self, t: float) -> float: return self.__dq_dt_sym(t)
 
+# Symbolic damped sinusoidal forcing function
+#
+# A   = amplitude
+# w   = angular frequency
+# phi = phase
+# k   = damping constant
+#
 def SymbolicSinusoidalForcing(A = 1, w = 1, phi = 0, k = 0):
     t = symbols('t')
     expr = A * sym.exp(-1*k * t) * sym.sin(w*t - phi)
@@ -568,7 +564,7 @@ class ForcedQDoublePendulumBehavior(GeneralDoublePendulumBehavior):
         theta1_dot = theta_dot[0]
         theta2_dot = theta_dot[1]
 
-        # Store everything is a state instance for passing to functions
+        # Store everything in a state instance for passing to functions
         state = DoublePendulum.State(theta1, theta2, q, theta1_dot, theta2_dot, q_dot)
 
         # Take into account potential due to gravity and our forcing potential
@@ -580,3 +576,114 @@ class ForcedQDoublePendulumBehavior(GeneralDoublePendulumBehavior):
         p_theta2_dot = self._p_theta2_dot(theta1, theta2, theta1_dot, theta2_dot, q_dot, gravity_terms[1] + forcing_terms[1], L, m)
 
         return [theta1_dot, theta2_dot, p_theta1_dot, p_theta2_dot]
+
+# Implementation of DoublePendulumBehavior that behaves as a single pendulum while forcing q and q_dot according to a given function
+# instead of solving for them.
+#
+# This class extends GeneralSinglePendulumBehavior, but overrides the core behavior methods to force q and q_dot.
+#
+# It also supports a forcing_potential in addition to the forcing function on q
+#
+class ForcedQSinglePendulumBehavior(GeneralSinglePendulumBehavior):
+    
+    def __init__(self, forcing_function: QForcingFunction = FixedQForcingFunction(), forcing_potential: Potential = ZeroPotential(), d_converter: Callable[[DoublePendulum.Properties], float] = lambda prop: prop.d()):
+        super().__init__(forcing_potential = forcing_potential, d_converter = d_converter)
+        self.__ff = forcing_function
+        self.__forcing_potential = forcing_potential
+        self.__d_converter = d_converter
+
+    def _theta_dot_to_p_theta(self, t: float, theta_dot: float, theta: float, L: float, m: float, d: float) -> float:
+        # Get q_dot from the forcing function
+        q_dot = self.__ff.dq_dt(t)
+
+        return 1/2*m * ((L**2/2 + 2*d**2)*theta_dot + L*cos(theta)*q_dot)
+
+    def _p_theta_to_theta_dot(self, t: float, p_theta: float, theta: float, L: float, m: float, d: float) -> float:
+        # Get q_dot from the forcing function
+        q_dot = self.__ff.dq_dt(t)
+
+        return (p_theta / (1/2*m) - L*cos(theta)*q_dot) / (L**2/2 + 2*d**2)
+
+    # Calculates p_theta_dot given the parameters of the current state and the potential
+    def _p_theta_dot(self, t: float, theta: float, theta_dot: float, potential_term: float, L: float, m: float) -> float:
+        # Get q_dot from the forcing function
+        q_dot = self.__ff.dq_dt(t)
+
+        return 1/2*m * (-1*q_dot*L*theta_dot*sin(theta)) - potential_term
+    
+    def state_to_y(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+        # Construct y vector
+        L = prop.L() * 2
+        m = prop.m() * 2
+        d = self.__d_converter(prop)
+
+        # assert(state.theta1() == state.theta2()) TODO check for equivalent angles
+        assert(state.theta1_dot() == state.theta2_dot())
+
+        theta     = state.theta1()
+        q         = state.q()
+        theta_dot = state.theta1_dot()
+        q_dot     = state.q_dot()
+
+        # Enforce that the state of q and q_dot always matches the forcing function values
+        assert(q == self.__ff.q(t))
+        assert(q_dot == self.__ff.dq_dt(t))
+
+        p_theta = self._theta_dot_to_p_theta(t, theta_dot, theta, L, m, d)
+
+        return [theta, p_theta]
+    
+    def y_to_state(self, t: float, y: List[float], prop: DoublePendulum.Properties) -> DoublePendulum.State:
+        L = prop.L() * 2
+        m = prop.m() * 2
+        d = self.__d_converter(prop)
+
+        theta   = y[0]
+        p_theta = y[1]
+        
+        # Get q and q_dot from the forcing function
+        q     = self.__ff.q(t)
+        q_dot = self.__ff.dq_dt(t)
+
+        theta_dot = self._p_theta_to_theta_dot(t, p_theta, theta, L, m, d)
+
+        return DoublePendulum.State(
+            theta1     = theta,
+            theta2     = theta,
+            q          = q,
+            theta1_dot = theta_dot,
+            theta2_dot = theta_dot,
+            q_dot      = q_dot
+        )
+    
+    def dy_dt(self, t: float, y: List[float], prop: DoublePendulum.Properties) -> List[float]:
+        L = prop.L() * 2
+        m = prop.m() * 2
+        d = self.__d_converter(prop)
+
+        # Local variables for the y vector elements
+        theta   = y[0]
+        p_theta = y[1]
+
+        # Get q and q_dot from the forcing function
+        q     = self.__ff.q(t)
+        q_dot = self.__ff.dq_dt(t)
+
+        # Calculate the time derivatives of each coordinate from the generalized momenta
+        theta_dot = self._p_theta_to_theta_dot(t, p_theta, theta, L, m, d)
+
+        # Store everything in a state instance for passing to functions
+        state = DoublePendulum.State(theta, theta, q, theta_dot, theta_dot, q_dot)
+
+        # Take into account potential due to gravity and our forcing potential
+        gravity_terms = self.gravity().dU_dcoord(t, state, prop)
+        forcing_terms = self.__forcing_potential.dU_dcoord(t, state, prop)
+
+        gravity_theta = self.net_gravity(gravity_terms)
+
+        assert(forcing_terms[0] == forcing_terms[1]) # TODO is this necessarily true
+
+        # Calculate the time derivatives of the generalized momenta
+        p_theta_dot = self._p_theta_dot(t, theta, theta_dot, gravity_theta + forcing_terms[0], L, m)
+
+        return [theta_dot, p_theta_dot]

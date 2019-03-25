@@ -70,12 +70,21 @@ def run_fft_q(pendulum: DoublePendulum, behavior: DoublePendulumBehavior, end_ti
     # Corresponding frequencies
     freq = np.fft.fftfreq(simulation.t_tracker().data.shape[-1])
 
-    # Plot the original function and FFT
-    plt.figure()
-    plt.plot(simulation.t_tracker().data, q_tracker.data)
+    # Extract only positive frequencies
+    fft_select = np.nonzero(np.where(freq > 0, fft_mags, 0))
+    fft_mags_pos = fft_mags[fft_select]
+    freq_pos = freq[fft_select]
 
+    # # Extract only the highest amplitudes
+    # sort_indices = np.flip(np.argsort(fft_mags_pos))
+    # strongest_freqs = freq_pos[sort_indices]
+    # largest_mags = fft_mags_pos[sort_indices]
+    # strongest_freqs_clip = strongest_freqs[0:4]
+    # largest_mags_clip = largest_mags[0:4]
+
+    # Plot
     plt.figure()
-    plt.plot(freq, fft_mags)
+    plt.plot(freq_pos, fft_mags_pos)
 
     plt.show()
 
@@ -153,7 +162,7 @@ if __name__ == "__main__":
     w = sqrt(-1*theta_0*m*g*(L/2)/B)
 
     # force = lambda t, prop: test_force_1(t, prop, w, B, d_converter_cylinder)
-    force = lambda t, prop: test_force_2(t, prop, -0.01*0, 3, 50, -3*pi/2)
+    force = lambda t, prop: test_force_2(t, prop, -0.05, 3, 50, -3*pi/2)
     forcing_potential = ForceQPotential(force)
 
     # variable trackers
@@ -162,21 +171,22 @@ if __name__ == "__main__":
 
     # Pendulum and Behavior
     pendulum = setup_pendulum(theta1 = theta_0, theta2 = theta_0, L = L, m = m, d = d, R = R)
-    behavior = GeneralSinglePendulumBehavior(forcing_potential = forcing_potential, d_converter = d_converter_cylinder)
+    # behavior = GeneralSinglePendulumBehavior(forcing_potential = forcing_potential, d_converter = d_converter_cylinder)
+    behavior = ForcedQSinglePendulumBehavior(d_converter = d_converter_cylinder)
 
-    # Run FFT
-    run_fft_q(
-        pendulum,
-        behavior,
-        10
-    )
-
-    # Run animation
-    # run(
+    # # Run FFT
+    # run_fft_q(
     #     pendulum,
     #     behavior,
-    #     [q_tracker]
+    #     20
     # )
+
+    # Run animation
+    run(
+        pendulum,
+        behavior,
+        [force_tracker]
+    )
 
 
     # run_potential(theta1 = pi/10, theta2 = pi/10, q = 0)
