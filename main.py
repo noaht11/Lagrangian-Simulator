@@ -1,4 +1,5 @@
 from math import sin, cos, sqrt, exp
+import numpy as np
 import scipy.constants
 
 from pendulum.core import *
@@ -47,6 +48,36 @@ def run(pendulum: DoublePendulum, behavior: DoublePendulumBehavior, var_trackers
     animator = DoublePendulumAnimator(simulation)
     animator.init()
     animator.run(sim_dt, draw_dt, 1000)
+
+def run_fft_q(pendulum: DoublePendulum, behavior: DoublePendulumBehavior, end_time: float):
+    # Variable tracker
+    q_tracker = VariableTracker(pendulum.state().q(), lambda t, state, prop, behavior: state.q())
+
+    # Setup solvers
+    time_evolver = ODEINTTimeEvolver()
+    simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver, [q_tracker])
+
+    # Simulation parameters
+    sim_dt  = 1.0 / 50
+
+    # Run simulation
+    simulation.step_for(sim_dt, end_time)
+
+    # Take FFT
+    fft_result = np.fft.fft(q_tracker.data)
+    fft_mags = np.absolute(fft_result)
+
+    # Corresponding frequencies
+    freq = np.fft.fftfreq(simulation.t_tracker().data.shape[-1])
+
+    # Plot the original function and FFT
+    plt.figure()
+    plt.plot(simulation.t_tracker().data, q_tracker.data)
+
+    plt.figure()
+    plt.plot(freq, fft_mags)
+
+    plt.show()
 
 
 ###################################################################################################################################################################################
@@ -126,20 +157,26 @@ if __name__ == "__main__":
     forcing_potential = ForceQPotential(force)
 
     # variable trackers
-    force_tracker = VariableTracker(0, (-1, 1), lambda t, state, prop, behavior: force(t, prop))
-    q_tracker = VariableTracker(0, (-1, 1), lambda t, state, prop, behavior: state.q())
+    force_tracker = VariableTracker(0, lambda t, state, prop, behavior: force(t, prop))
+    q_tracker = VariableTracker(0, lambda t, state, prop, behavior: state.q())
 
     # Pendulum and Behavior
     pendulum = setup_pendulum(theta1 = theta_0, theta2 = theta_0, L = L, m = m, d = d, R = R)
     behavior = GeneralSinglePendulumBehavior(forcing_potential = forcing_potential, d_converter = d_converter_cylinder)
 
-
-    # Run animation
-    run(
+    # Run FFT
+    run_fft_q(
         pendulum,
         behavior,
-        [q_tracker]
+        10
     )
+
+    # Run animation
+    # run(
+    #     pendulum,
+    #     behavior,
+    #     [q_tracker]
+    # )
 
 
     # run_potential(theta1 = pi/10, theta2 = pi/10, q = 0)

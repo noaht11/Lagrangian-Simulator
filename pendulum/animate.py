@@ -14,8 +14,10 @@ from pendulum.simulate import *
 
 # Animates a DoublePendulumSimulation
 class DoublePendulumAnimator:
-    def __init__(self, simulation: DoublePendulumSimulation):
+    def __init__(self, simulation: DoublePendulumSimulation, t_init_range: Tuple[float, float] = (0, 10), var_init_range: Tuple[float, float] = (-1, 1)):
         self.__simulation = simulation
+        self.__t_init_range = t_init_range
+        self.__var_init_range = var_init_range
 
     # Performs all the setup necessary before running an animation
     #
@@ -49,7 +51,7 @@ class DoublePendulumAnimator:
 
         # Graph figure
         #self.fig_graph = plt.figure(figsize=(8, 8))
-        self.ax_var = self.fig.add_subplot(212, autoscale_on = True, xlim = self.__simulation.t_tracker().init_range(), ylim = self.__simulation.var_trackers()[0].init_range()) # TODO multiple var trackers
+        self.ax_var = self.fig.add_subplot(212, autoscale_on = True, xlim = self.__t_init_range, ylim = self.__var_init_range)
         self.ax_var.set_xlabel("Time (seconds)")
         self.ax_var.set_ylabel("Variable")
         self.ax_var.grid()

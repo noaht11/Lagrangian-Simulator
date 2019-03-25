@@ -61,14 +61,10 @@ class ODEINTTimeEvolver(TimeEvolver):
 
 class VariableTracker():
 
-    def __init__(self, init_val: float, init_range: Tuple[float, float], tracker: Callable[[float, DoublePendulum.State, DoublePendulum.Properties, DoublePendulumBehavior], float]):
+    def __init__(self, init_val: float, tracker: Callable[[float, DoublePendulum.State, DoublePendulum.Properties, DoublePendulumBehavior], float]):
         self.data = np.array([init_val])
-        self.__init_range = init_range
         self.__tracker = tracker
-    
-    def init_range(self) -> Tuple[float, float]:
-        return self.__init_range
-
+        
     def track(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties, behavior: DoublePendulumBehavior):
         new_val = self.__tracker(t, state, prop, behavior)
         self.data = np.append(self.data, new_val)
@@ -90,7 +86,7 @@ class DoublePendulumSimulation:
         self.init_state = self.__pendulum.state()
         self.__elapsed_time = 0
 
-        self.__t_tracker = VariableTracker(0, (0, 10), lambda t, state, prop, behavior: t)
+        self.__t_tracker = VariableTracker(0, lambda t, state, prop, behavior: t)
         self.__var_trackers = var_trackers
 
     def pendulum(self) -> DoublePendulum: return self.__pendulum
