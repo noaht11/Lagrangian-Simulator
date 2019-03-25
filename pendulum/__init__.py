@@ -1,1 +1,1 @@
-__all__ = ["core", "behavior", "potential", "simulate", "animate"]
+__all__ = ["core"]
