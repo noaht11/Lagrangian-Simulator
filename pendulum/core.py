@@ -95,15 +95,15 @@ class DoublePendulum:
     # Sets the current state to new_state
     def set_state(self, new_state: State):
         # # Constrain the angles to between -pi and pi for easy interpretation
-        # adj_state = DoublePendulum.State(
-        #     neg_pi_to_pi(new_state.theta1()),
-        #     neg_pi_to_pi(new_state.theta2()),
-        #     new_state.q(),
-        #     new_state.theta1_dot(),
-        #     new_state.theta2_dot(),
-        #     new_state.q_dot()
-        # )
-        self.__state = new_state
+        adj_state = DoublePendulum.State(
+            neg_pi_to_pi(new_state.theta1()),
+            neg_pi_to_pi(new_state.theta2()),
+            new_state.q(),
+            new_state.theta1_dot(),
+            new_state.theta2_dot(),
+            new_state.q_dot()
+        )
+        self.__state = adj_state
 
     # Calculates and returns the positions of the endpoints of the arms of the pendulum
     #

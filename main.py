@@ -1,6 +1,7 @@
-from math import sin, cos, sqrt, exp
+from math import sin, cos, sqrt, exp, log
 import numpy as np
 import scipy.constants
+import sympy as sp
 
 from pendulum.core import *
 from pendulum.behavior import *
@@ -41,11 +42,11 @@ def run(pendulum: DoublePendulum, behavior: DoublePendulumBehavior, var_trackers
     simulation = DoublePendulumSimulation(pendulum, behavior, time_evolver, var_trackers)
 
     # Simulation parameters
-    sim_dt  = 1.0 / 50
-    draw_dt = 1.0 / 50
+    sim_dt  = 1.0 / 100
+    draw_dt = 1.0 / 100
 
     # Run animated simulation
-    animator = DoublePendulumAnimator(simulation)
+    animator = DoublePendulumAnimator(simulation, t_init_range = (0, 3), var_init_range = (-0.2, 0.2))
     animator.init()
     animator.run(sim_dt, draw_dt, 1000)
 
@@ -93,40 +94,44 @@ def run_fft_q(pendulum: DoublePendulum, behavior: DoublePendulumBehavior, end_ti
 # TEST POTENTIALS
 ###################################################################################################################################################################################
 
-class TestPotential1(BasePotential):
-    def __init__(self, k1: float = 0, k2: float = 0, k3: float = 0, k4: float = 0):
-        self.__k1 = k1
-        self.__k2 = k2
-        self.__k3 = k3
-        self.__k4 = k4
+# class TestPotential1(BasePotential):
+#     def __init__(self, k1: float = 0, k2: float = 0, k3: float = 0, k4: float = 0):
+#         self.__k1 = k1
+#         self.__k2 = k2
+#         self.__k3 = k3
+#         self.__k4 = k4
 
-    def U(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
-        return [
-            0,
-            0,
-            -1*(self.__k1 * state.theta1() + self.__k2 * state.theta1_dot() + self.__k3 * state.theta2() + self.__k4 * state.theta2_dot()) * state.q()
-        ]
+#     def U(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+#         return [
+#             0,
+#             0,
+#             -1*(self.__k1 * state.theta1() + self.__k2 * state.theta1_dot() + self.__k3 * state.theta2() + self.__k4 * state.theta2_dot()) * state.q()
+#         ]
     
-    def dU_dcoord(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
-        return [
-            0,
-            0,
-            -1*(self.__k1 * state.theta1() + self.__k2 * state.theta1_dot() + self.__k3 * state.theta2() + self.__k4 * state.theta2_dot())
-        ]
+#     def dU_dcoord(self, t: float, state: DoublePendulum.State, prop: DoublePendulum.Properties) -> List[float]:
+#         return [
+#             0,
+#             0,
+#             -1*(self.__k1 * state.theta1() + self.__k2 * state.theta1_dot() + self.__k3 * state.theta2() + self.__k4 * state.theta2_dot())
+#         ]
 
-def test_force_1(t: float, prop: DoublePendulum.Properties, w: float, B: float, d_converter: Callable[[DoublePendulum.Properties], float]):
-    g = scipy.constants.g
+# def test_force_1(t: float, prop: DoublePendulum.Properties, w: float, B: float, d_converter: Callable[[DoublePendulum.Properties], float]):
+#     g = scipy.constants.g
 
-    L = prop.L() * 2
-    m = prop.m() * 2
+#     L = prop.L() * 2
+#     m = prop.m() * 2
 
-    I = m * d_converter(prop)**2
-    I_R = I + m * (L/2)**2
+#     I = m * d_converter(prop)**2
+#     I_R = I + m * (L/2)**2
 
-    return -1*w**2*B/(L/2) * (1 + I_R * w**2 / (m*g*(L/2))) * cos(w*t)
+#     return -1*w**2*B/(L/2) * (1 + I_R * w**2 / (m*g*(L/2))) * cos(w*t)
 
-def test_force_2(t: float, prop: DoublePendulum.Properties, A: float, w_c: float, w_m: float, phi: float):
-    return A * -1*exp(-1*sin(w_c*t - phi)) * (w_c*cos(w_c*t)*cos(w_m*t - phi) + w_m*sin(w_m*t))
+# def test_force_2(t: float, prop: DoublePendulum.Properties, A: float, w_c: float, w_m: float, phi: float):
+#     return exp(-1*A*sin(w_c*t - phi)) * (w_c*cos(w_c*t)*cos(w_m*t - phi) + w_m*sin(w_m*t))
+
+def test_force_3(A: float = 1, k: float = 1, w_c: float = 1, w_m: float = 1, phi: float = 0):
+    t = sp.symbols("t")
+    return A * sp.exp(-1*k*sp.sin(w_c*t - phi)) * sp.cos(w_m*t)
 
 ###################################################################################################################################################################################
 # MAIN
@@ -156,37 +161,46 @@ if __name__ == "__main__":
     m = 0.072
     d = d_cyclinder(L, R, m)
 
-    # Forcing parameters
+    print(L / (L**2+d**2))
+
+    # Initial condition
     theta_0 = pi/20
-    B = -5
-    w = sqrt(-1*theta_0*m*g*(L/2)/B)
+
+    # Forcing parameters
+    # B = -5
+    # w = sqrt(-1*theta_0*m*g*(L/2)/B)
 
     # force = lambda t, prop: test_force_1(t, prop, w, B, d_converter_cylinder)
-    force = lambda t, prop: test_force_2(t, prop, -0.05, 3, 50, -3*pi/2)
-    forcing_potential = ForceQPotential(force)
+    # force = lambda t, prop: test_force_2(t, prop, -0.05, 3, 50, -3*pi/2)
+    # forcing_potential = ForceQPotential(force)
 
-    # variable trackers
+    forcing_function = test_force_3(A = -0.05, k = 0.5, w_c = 5, w_m = 30, phi = pi)
+    forcing = SymbolicForcing(forcing_function)
+
+    # Variable trackers
     force_tracker = VariableTracker(0, lambda t, state, prop, behavior: force(t, prop))
     q_tracker = VariableTracker(0, lambda t, state, prop, behavior: state.q())
+    theta_tracker = VariableTracker(0, lambda t, state, prop, behavior: state.theta1())
 
     # Pendulum and Behavior
-    pendulum = setup_pendulum(theta1 = theta_0, theta2 = theta_0, L = L, m = m, d = d, R = R)
+    pendulum = setup_pendulum(theta1 = theta_0, theta2 = theta_0, q = forcing.q(0), q_dot = forcing.dq_dt(0), L = L, m = m, d = d, R = R)
+    # behavior = GeneralSinglePendulumBehavior(d_converter = d_converter_cylinder)
     # behavior = GeneralSinglePendulumBehavior(forcing_potential = forcing_potential, d_converter = d_converter_cylinder)
-    behavior = ForcedQSinglePendulumBehavior(d_converter = d_converter_cylinder)
+    behavior = ForcedQSinglePendulumBehavior(forcing_function = forcing, d_converter = d_converter_cylinder)
 
+    # Run animation
+    run(
+        pendulum,
+        behavior,
+        [q_tracker]
+    )
+    
     # # Run FFT
     # run_fft_q(
     #     pendulum,
     #     behavior,
     #     20
     # )
-
-    # Run animation
-    run(
-        pendulum,
-        behavior,
-        [force_tracker]
-    )
 
 
     # run_potential(theta1 = pi/10, theta2 = pi/10, q = 0)
