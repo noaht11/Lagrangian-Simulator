@@ -2,8 +2,11 @@ from abc import ABC, abstractmethod
 from typing import List, Tuple, Callable, Dict
 
 import sympy as sp
+import scipy.constants
 
 from math import sin, cos, pi, inf, exp
+
+sp.init_printing()
 
 ###################################################################################################################################################################################
 # UTILITY FUNCTIONS
@@ -38,7 +41,8 @@ class Pendulum:
         Attributes:
             `L`      : length of the pendulum
             `m`      : total mass of the pendulum
-            `I`      : moment of inertia of the pendulum about an axis passing through its center, perpendicular to the plane of oscillation
+            `I`      : moment of inertia of the pendulum about an axis passing through its center,
+                       perpendicular to the plane of oscillation
             `extras` : additional, instance-specific properties
         """
 
@@ -61,37 +65,54 @@ class Pendulum:
         """Represents the symbolic quantities required to define the Lagrangian equations for the pendulum:
 
         Attributes:
-            `x`     : x coordinate of the endpoint of the pendulum, closest to the first element in a chain of pendulums if applicable
-            `y`     : y coordinate of the endpoint of the pendulum, closest to the first element in a chain of pendulums if applicable
-            `theta` : angle of the pendulum with respect to the vertical through (x,y)
+            `x`     : x coordinate (as a symbolic function of time) of the starting endpoint of the pendulum
+            `y`     : y coordinate (as a symbolic function of time) of the starting endpoint of the pendulum
+            `theta` : angle of the pendulum (as a symbolic function of time) with respect to the vertical through (x,y)
         """
 
-        def __init__(self, x: sp.Expr, y: sp.Expr, theta: sp.Symbol):
+        def __init__(self, x: sp.Function, y: sp.Function, theta: sp.Function):
             self._x = x
             self._y = y
             self._theta = theta
         
         @property
-        def x(self)     -> sp.Expr   : return self._x
+        def x(self)     -> sp.Function : return self._x
         @property
-        def y(self)     -> sp.Expr   : return self._y
+        def y(self)     -> sp.Function : return self._y
         @property
-        def theta(self) -> sp.Symbol : return self._theta
+        def theta(self) -> sp.Function : return self._theta
 
     class State:
         """Holds the numeric values required to define the current instantaneous motion of the pendulum
 
         Attributes:
+            `x`     : x coordinate of the starting endpoint of the pendulum
+            `x_dot` : x velocity of the starting endpoint of the pendulum
+            `y`     : y coordinate of the starting endpoint of the pendulum
+            `y_dot` : y velocity of the starting endpoint of the pendulum
             `theta`     : angle of the pendulum with respect to the vertical through (x,y)
-            `theta_dot` : anglular velocity of the pendulum about an axis on the pendulum, perpendicular to the plane of oscillation
+            `theta_dot` : anglular velocity of the pendulum about an axis on the pendulum,
+                          perpendicular to the plane of oscillation
         """
 
-        def __init__(self, theta: float = 0, theta_dot: float = 0):
+        def __init__(self, x: float, y: float, theta: float, x_dot: float, y_dot: float, theta_dot: float):
+            self._x         = x
+            self._y         = y
             self._theta     = theta
+            self._x_dot     = x_dot
+            self._y_dot     = y_dot
             self._theta_dot = theta_dot
         
         @property
+        def x(self)         -> float : return self._x
+        @property
+        def y(self)         -> float : return self._y
+        @property
         def theta(self)     -> float : return self._theta
+        @property
+        def x_dot(self)     -> float : return self._x_dot
+        @property
+        def y_dot(self)     -> float : return self._y_dot
         @property
         def theta_dot(self) -> float : return self._theta_dot
         
@@ -116,7 +137,6 @@ class Pendulum:
         Arguments:
             `new_state` : the new state of the pendulum
         """
-
         # Constrain the angles to between -pi and pi for easy interpretation
         adj_state = Pendulum.State(
             neg_pi_to_pi(new_state.theta()),
@@ -125,14 +145,14 @@ class Pendulum:
         self._state = adj_state
 
     def start(self) -> Tuple[sp.Expr, sp.Expr]:
-        """Calculates expressions for the coordinates of the start endpoint of the pendulum
+        """Generates symbolic expressions for the coordinates of the start endpoint of the pendulum
         
         Returns: Tuple of (x, y) where each coordinate is a symbolic expression
         """
         return (self.sym.x, self.sym.y)
 
     def com(self) -> Tuple[sp.Expr, sp.Expr]:
-        """Calculates expressions for the coordinates of the centre of mass of the pendulum
+        """Generates symbolic expressions for the coordinates of the centre of mass of the pendulum
 
         Returns: Tuple of (x_COM, y_COM) where each coordinate is a symbolic expression
         """
@@ -145,7 +165,7 @@ class Pendulum:
         return (x_com, y_com)
 
     def end(self) -> Tuple[sp.Expr, sp.Expr]:
-        """Calculates expressions for the coordinates of the end endpoint of the pendulum
+        """Generates symbolic expressions for the coordinates of the end endpoint of the pendulum
 
         Returns: Tuple of (x_end, y_end) where each coordinate is a symbolic expression
         """
@@ -154,32 +174,44 @@ class Pendulum:
 
         x_end = self.sym.x + L * sp.sin(theta)
         y_end = self.sym.y + L * sp.cos(theta)
-
         return (x_end, y_end)
 
     def energy_potential(self) -> sp.Expr:
-        L = self.prop.L
+        """Generates a symbolic expression for the potential energy of the pendulum
+
+        The zero of potential energy is taken to be at a y coordinate of 0
+
+        Returns:
+            A symbolic expression for the potential energy of the pendulum
+        """
         m = self.prop.m
+        _, y_com = self.com()
 
-        return m * L / 2 * sp.cos(self.sym.theta)
+        g = scipy.constants.g
 
-    def energy_kinetic(self) -> sp.Expr:
-        pass
+        return m * g * y_com
 
-    # # Calculates and returns the kinetic energy of the current state of the pendulum
-    # def energy_kinetic(self) -> float:
-    #     # Local copies of the state variables for convenience
-    #     L = self.prop().L()
-    #     m = self.prop().m()
-    #     d = self.prop().d()
-    #     theta1 = self.state().theta1()
-    #     theta2 = self.state().theta2()
-    #     q = self.state().q()
-    #     theta1_dot = self.state().theta1_dot()
-    #     theta2_dot = self.state().theta2_dot()
-    #     q_dot = self.state().q_dot()
+    def energy_kinetic(self, t: sp.Symbol) -> sp.Expr:
+        """Generates and returns a symbolic expression for the kinetic energy of the pendulum
 
-    #     # This is just the final formula for kinetic energy after a lot of re-arranging, so there's no good way to decompose it
-    #     T = 1/2*m * (2*q_dot**2   +   q_dot*L*(3*cos(theta1)*theta1_dot + cos(theta2)*theta2_dot)   +   L**2*(1/4*(5*theta1_dot**2 + theta2_dot**2) + theta1_dot*theta2_dot*cos(theta1 - theta2))   +   d**2*(theta1_dot**2 + theta2_dot**2))
+        This takes into account both the translation and rotational kinetic energies
 
-    #     return T
+        Arguments:
+            `t` : a symbol for the time variable, time derivatives will be taken against this symbol
+
+        Returns:
+            A symbolic expression for the kinetic energy of the pendulum
+        """
+        m = self.prop.m
+        I = self.prop.I
+        theta = self.sym.theta
+        x_com, y_com = self.com()
+
+        x_dot = sp.Derivative(x_com, t)
+        y_dot = sp.Derivative(y_com, t)
+        theta_dot = sp.Derivative(theta, t)
+
+        T_translation = 1/2*m * (x_dot**2 + y_dot**2)
+        T_rotation = 1/2*I * theta_dot**2
+
+        return T_translation + T_rotation
