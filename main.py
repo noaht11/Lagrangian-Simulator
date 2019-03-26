@@ -11,13 +11,13 @@ if __name__ == "__main__":
     y = sp.Function("y")
     theta = sp.Function("theta")
 
-    pendulum = CompoundPendulum(
-        Pendulum.Coordinates(
+    pendulum = Pendulum(
+        Coordinates(
             x = x,
             y = y,
             theta = theta
         ),
-        Pendulum.State(
+        State(
             x = 0,
             x_dot = 0,
             y = 0,
@@ -25,7 +25,7 @@ if __name__ == "__main__":
             theta = 0,
             theta_dot = 0
         ),
-        CompoundPendulum.Properties(
+        CompoundPendulumPhysics(
             L = 1,
             m = 1,
             I = 0
