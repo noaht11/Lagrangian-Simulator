@@ -55,16 +55,16 @@ class Lagrangian():
         L = sp.simplify(L)
 
         # Get generalized forces
-        gen_forces = []
+        forces = []
         for q in coordinates:
             dL_dq = sp.diff(L, q(t)).doit()
-            gen_forces.append(dL_dq)
+            forces.append(dL_dq)
 
         # Get generalized momenta
-        gen_momenta = []
+        momenta = []
         for q in coordinates:
             q_dot = sp.diff(q(t), t)
             dL_dqdot = sp.diff(L, q_dot).doit()
-            gen_momenta.append(dL_dqdot)
+            momenta.append(dL_dqdot)
         
-        return (gen_forces, gen_momenta)
+        return (forces, momenta)

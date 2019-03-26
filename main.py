@@ -12,23 +12,23 @@ if __name__ == "__main__":
     theta = sp.Function("theta")
 
     pendulum = CompoundPendulum(
-        CompoundPendulum.Properties(
-            L = 1,
-            m = 1,
-            I = 0
-        ),
-        CompoundPendulum.Symbols(
+        Pendulum.Coordinates(
             x = x,
             y = y,
             theta = theta
         ),
-        CompoundPendulum.State(
+        Pendulum.State(
             x = 0,
             x_dot = 0,
             y = 0,
             y_dot = 0,
             theta = 0,
             theta_dot = 0
+        ),
+        CompoundPendulum.Properties(
+            L = 1,
+            m = 1,
+            I = 0
         )
     )
 
