@@ -1,7 +1,8 @@
-from pendulum.core import *
-from pendulum.lagrangian import *
-
 import sympy as sp
+
+from pendulum.core import *
+from pendulum.impl import *
+from pendulum.lagrangian import *
 
 if __name__ == "__main__":
     print("")
