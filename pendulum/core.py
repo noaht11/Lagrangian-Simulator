@@ -161,6 +161,7 @@ class Pendulum():
             
             The State is a set of numeric values for the current values of the coordinates and their first time derivatives.
             These values are to be used when numerically solving the differential equations of motion of the pendulum.
+            When a Pendulum is first constructed, its state will be initialized to None since it does not necessarily have enough information to compute a valid state.
         
         3) `Physics`:
 
@@ -175,10 +176,12 @@ class Pendulum():
         This means instances of the State class can safely be used to pass information about the state of the pendulum without risk of it being modified.
     """
     
-    def __init__(self, coordinates: Coordinates, state: State, physics: Physics):
+    def __init__(self, coordinates: Coordinates, physics: Physics):
         self._coordinates = coordinates
-        self._state = state
         self._physics = physics
+        
+        # Initialize the state to None to indicate we don't currently have a valid state
+        self._state = None
 
     @property
     def coordinates(self) -> Coordinates: return self._coordinates
@@ -223,3 +226,58 @@ class Pendulum():
     def T(self, t: sp.Symbol) -> sp.Expr:
         """Wrapper for `Physics.T`"""
         return self._physics.T(t, self.coordinates)
+
+class MultiPendulum(Pendulum):
+    
+    def __init__(self, coordinates: Coordinates, physics: Physics):
+        super().__init__(coordinates, physics)
+
+        self._attachment: MultiPendulum = None
+    
+    @property
+    def attachment(self) -> "MultiPendulum": return self._attachment
+
+    def attach_pendulum(self, t: sp.Symbol, theta: sp.Function, physics: Physics) -> "MultiPendulum":
+        """Constructs another MultiPendulum attached to the endpoint of this MultiPendulum"""
+
+        # Get the endpoint of this pendulum
+        x_end, y_end = self.endpoint(t)
+
+        # Declare Functions to make this the pivot of the new pendulum
+        x_new = sp.Lambda(t, x_end)
+        y_new = sp.Lambda(t, y_end)
+
+        # Create the Coordinates object
+        coordinate_new = Coordinates(x_new, y_new, theta)
+
+        # Construct the pendulum
+        pendulum_new = MultiPendulum(coordinate_new, physics)
+
+        # Attach it to the current pendulum
+        self._attachment = pendulum_new
+
+        # Return the self to allow chaining method calls
+        return self
+    
+    def endpoint(self, t: sp.Symbol) -> Tuple[sp.Expr, sp.Expr]:
+        """Returns the endpoint of the final pendulum in this MultiPendulum"""
+        if (self.attachment is not None):
+            return self.attachment.endpoint(t)
+        else:
+            return super().endpoint(t)
+
+    #TODO COM
+
+    def U(self, t: sp.Symbol) -> sp.Expr:
+        """Returns the total potential energy of this MultiPendulum (including all its attachments)"""
+        U = super().U(t)
+        if (self.attachment is not None):
+            U += self.attachment.U(t)
+        return U
+    
+    def T(self, t: sp.Symbol) -> sp.Expr:
+        """Returns the total kinetic energy of this MultiPendulum (including all its attachments)"""
+        T = super().T(t)
+        if (self.attachment is not None):
+            T += self.attachment.T(t)
+        return T

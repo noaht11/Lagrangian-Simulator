@@ -46,7 +46,7 @@ class Lagrangian():
         """
         # Define the Lagrangian
         L = self.T - self.U
-
+        
         # Substitute in pre-determined functions
         for func, expr in substitutions:
             L = L.subs(func(t), expr)
