@@ -137,7 +137,7 @@ class CompoundPendulum:
             `new_state` : the new state of the pendulum
         """
         # Constrain the angles to between -pi and pi for easy interpretation
-        adj_state = Pendulum.State(
+        adj_state = CompoundPendulum.State(
             neg_pi_to_pi(new_state.theta()),
             new_state.theta_dot()
         )
