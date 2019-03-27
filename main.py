@@ -1,9 +1,5 @@
 from physics.lagrangian import Lagrangian, Constraint
 from physics.pendulum import CompoundPendulumPhysics, n_link_pendulum
-# from pendulum.core import Coordinates, Physics, MultiPendulum
-# from pendulum.impl import CompoundPendulumPhysics
-# from pendulum.lagrangian import Lagrangian
-# from pendulum.builder import n_link_pendulum
 
 import sympy as sp
 
