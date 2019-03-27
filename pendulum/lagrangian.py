@@ -18,6 +18,13 @@ class Constraint:
         """Applies this constraint to the provided expression and returns the newly constrained expression"""
         return E.subs(self.coordinate(t), self.expression)
 
+def unconstrained_DoF(all_DoF: List[sp.Function], constraints: List[Constraint]):
+    free_DoF = []
+    for DoF in all_DoF:
+        if (not any((lambda constraint: constraint.coordinate == DoF) for constraint in constraints)):
+            # Only include if none of the constraint coordinates are equal to the DoF
+            free_DoF.append(DoF)
+    return free_DoF
 
 class Lagrangian():
     """Represents the Lagrangian for a physical system
