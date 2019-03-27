@@ -5,7 +5,7 @@ from math import pi
 import sympy as sp
 import scipy.constants
 
-from pendulum.lagrangian import LagrangianBody, Constraint, unconstrained_DoF
+from physics.lagrangian import LagrangianBody, Constraint, unconstrained_DoF
 
 sp.init_printing()
 
@@ -77,7 +77,7 @@ class SinglePendulum(LagrangianBody):
         """
 
         @abstractmethod
-        def endpoint(self, t: sp.Symbol, coordinates: Coordinates) -> Tuple[sp.Expr, sp.Expr]:
+        def endpoint(self, t: sp.Symbol, coordinates: "Coordinates") -> Tuple[sp.Expr, sp.Expr]:
             """Generates symbolic expressions for the coordinates of the endpoint of the pendulum
 
             The endpoint of the pendulum is the point where a subsequent pendulum would be attached if a chain of pendulums were to be constructed.
@@ -91,7 +91,7 @@ class SinglePendulum(LagrangianBody):
             pass
 
         @abstractmethod
-        def COM(self, t: sp.Symbol, coordinates: Coordinates) -> Tuple[sp.Expr, sp.Expr]:
+        def COM(self, t: sp.Symbol, coordinates: "Coordinates") -> Tuple[sp.Expr, sp.Expr]:
             """Generates symbolic expressions for the coordinates of the centre of mass (COM) of the pendulum
 
             Arguments:
@@ -103,7 +103,7 @@ class SinglePendulum(LagrangianBody):
             pass
 
         @abstractmethod
-        def U(self, t: sp.Symbol, coordinates: Coordinates) -> sp.Expr:
+        def U(self, t: sp.Symbol, coordinates: "Coordinates") -> sp.Expr:
             """Generates a symbolic expression for the potential energy of the pendulum
 
             The zero of potential energy is taken to be at a y coordinate of 0
@@ -117,7 +117,7 @@ class SinglePendulum(LagrangianBody):
             pass
         
         @abstractmethod
-        def T(self, t: sp.Symbol, coordinates: Coordinates) -> sp.Expr:
+        def T(self, t: sp.Symbol, coordinates: "Coordinates") -> sp.Expr:
             """Generates and returns a symbolic expression for the kinetic energy of the pendulum
 
             Arguments:
@@ -135,7 +135,6 @@ class SinglePendulum(LagrangianBody):
     @property
     def coordinates(self) -> Coordinates : return self._coordinates
 
-    @property
     def DoF(self) -> List[sp.Function]:
         """Implementation of superclass method"""
         return [self.coordinates.x, self.coordinates.y, self.coordinates.theta]
@@ -177,7 +176,7 @@ class MultiPendulum(LagrangianBody):
     def constraints(self) -> List[Constraint]: return self._constraints
 
     @property
-    def next(self) -> MultiPendulum: return self._next
+    def next(self) -> "MultiPendulum": return self._next
         
     def endpoint(self, t: sp.Symbol) -> Tuple[sp.Expr, sp.Expr]:
         """Returns the endpoint of the final pendulum in this MultiPendulum"""
@@ -188,64 +187,84 @@ class MultiPendulum(LagrangianBody):
     
     def this_DoF(self) -> List[sp.Function]:
         """Returns a list of only those coordinates that are unconstrained degrees of freedom"""
-        DoF = self.this.DoF
+        DoF = self.this.DoF()
         if (self.constraints is not None):
             DoF = unconstrained_DoF(DoF, self.constraints)
         return DoF
+    
+    def constrain(self, t: sp.Symbol, expression: sp.Expr) -> sp.Expr:
+        constrained = expression
+        if self.constraints is not None:
+            for constraint in self.constraints:
+                constrained = constraint.apply_to(t, constrained)
+        return constrained
 
-    @property
     def DoF(self) -> List[sp.Function]:
         """Implementation of superclass method"""
         DoF = self.this_DoF() # Only include unconstrained degrees of freedom
         if (self.next is not None):
-            DoF += self.next.DoF
+            DoF += self.next.DoF()
         return DoF
     
     def U(self, t: sp.Symbol) -> sp.Expr:
         """Implementation of superclass method"""
+        # Potential energy of this
         U = self.this.U(t)
+
+        # Potential energy of next
         if (self.next is not None):
             U += self.next.U(t)
+
+        # Apply constraints    
+        U = self.constrain(t, U)
+
         return U
     
     def T(self, t: sp.Symbol) -> sp.Expr:
         """Implementation of superclass method"""
+        # Kinetic energy of this
         T = self.this.T(t)
+        
+        # Kinetic energy of next
         if (self.next is not None):
             T += self.next.T(t)
+        
+        # Apply constraints
+        T = self.constrain(t, T)
+
         return T
     
-    def attach_pendulum(self, t: sp.Symbol, coordinates: SinglePendulum.Coordinates, physics: SinglePendulum.Physics) -> "MultiPendulum":
+    def attach_pendulum(self, t: sp.Symbol, pendulum: SinglePendulum) -> "MultiPendulum":
         """Constructs another MultiPendulum attached to the endpoint of this MultiPendulum
         
         Returns:
-            self (to allow method call chaining)
+            The newly added MultiPendulum (to allow method call chaining)
         """
+        # Attach to the last pendulum in the chain
+        if (self.next is not None):
+            return self.next.attach_pendulum(t, pendulum)
 
         # Get the endpoint of this pendulum
         x_end, y_end = self.endpoint(t)
 
         # Setup the constraints
-        x_constraint = Constraint(coordinates.x, x_end)
-        y_constraint = Constraint(coordinates.y, y_end)
-
-        # Construct the new SinglePendulum
-        single_pendulum_new = SinglePendulum(coordinates, physics)
+        x_constraint = Constraint(pendulum.coordinates.x, x_end)
+        y_constraint = Constraint(pendulum.coordinates.y, y_end)
 
         # Construct the new MultiPendulum to hold the SinglePendulum
-        pendulum_new = MultiPendulum(single_pendulum_new, [x_constraint, y_constraint])
+        pendulum_new = MultiPendulum(pendulum, [x_constraint, y_constraint])
 
         # Attach it to the current pendulum
         self._next = pendulum_new
 
-        # Return the self to allow chaining method calls
-        return self
+        # Return the new pendulum to allow chaining method calls
+        return pendulum_new
 
 ###################################################################################################################################################################################
 # SPECIFIC PENDULUM IMPLEMENTATIONS
 ###################################################################################################################################################################################
 
-class CompoundPendulum(SinglePendulum.Physics):
+class CompoundPendulumPhysics(SinglePendulum.Physics):
     """Implementation of SinglePendulum for a single compound pendulum (a pendulum whose mass is evenly distributed along its length)
 
     Attributes:
@@ -330,7 +349,8 @@ def n_link_pendulum(n: int, physics: SinglePendulum.Physics) -> Tuple[MultiPendu
     """
     t = sp.symbols("t")
 
-    pendulum = None
+    root_pendulum = None
+    last_pendulum = None
 
     xs = []
     ys = []
@@ -346,9 +366,10 @@ def n_link_pendulum(n: int, physics: SinglePendulum.Physics) -> Tuple[MultiPendu
 
         single_pendulum = SinglePendulum(SinglePendulum.Coordinates(x, y, theta), physics)
 
-        if (pendulum is None):
-            pendulum = MultiPendulum(single_pendulum)
+        if (root_pendulum is None):
+            root_pendulum = MultiPendulum(single_pendulum)
+            last_pendulum = root_pendulum
         else:
-            pendulum.attach_pendulum(t, theta, physics)
+            last_pendulum = last_pendulum.attach_pendulum(t, single_pendulum)
     
-    return (pendulum, t, xs[0], ys[0], thetas)
+    return (root_pendulum, t, xs[0], ys[0], thetas)

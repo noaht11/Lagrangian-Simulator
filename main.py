@@ -1,7 +1,9 @@
-from pendulum.core import Coordinates, Physics, MultiPendulum
-from pendulum.impl import CompoundPendulumPhysics
-from pendulum.lagrangian import Lagrangian
-from pendulum.builder import n_link_pendulum
+from physics.lagrangian import Lagrangian, Constraint
+from physics.pendulum import CompoundPendulumPhysics, n_link_pendulum
+# from pendulum.core import Coordinates, Physics, MultiPendulum
+# from pendulum.impl import CompoundPendulumPhysics
+# from pendulum.lagrangian import Lagrangian
+# from pendulum.builder import n_link_pendulum
 
 import sympy as sp
 
@@ -14,15 +16,19 @@ if __name__ == "__main__":
             I = 0
         )
 
-    (pendulum, t, x, y, thetas) = n_link_pendulum(3, physics)
+    (pendulum, t, x, y, thetas) = n_link_pendulum(2, physics)
 
-    L = Lagrangian(pendulum.U(t), pendulum.T(t))
+    L = pendulum.lagrangian(t)
 
-    (forces, momenta) = L.generalized_forces_momenta(t, thetas, [(x, sp.S.Zero), (y, sp.S.Zero)])
+    (forces, momenta) = L.forces_and_momenta(t, thetas, [Constraint(x, sp.S.Zero), Constraint(y, sp.S.Zero)])
     
     print("")
     
+    # for force in forces:
+    #     sp.pprint(force)
+
     for momentum in momenta:
         sp.pprint(momentum)
+        print("")
 
     print("")

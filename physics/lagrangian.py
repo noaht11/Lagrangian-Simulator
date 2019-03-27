@@ -77,6 +77,7 @@ class Lagrangian():
         forces = []
         for q in degrees_of_freedom:
             dL_dq = sp.diff(L, q(t)).doit()
+            dL_dq = sp.simplify(dL_dq)
             forces.append(dL_dq)
 
         # Get generalized momenta
@@ -84,6 +85,7 @@ class Lagrangian():
         for q in degrees_of_freedom:
             q_dot = sp.diff(q(t), t)
             dL_dqdot = sp.diff(L, q_dot).doit()
+            dL_dqdot = sp.simplify(dL_dqdot)
             momenta.append(dL_dqdot)
         
         return (forces, momenta)
@@ -91,7 +93,6 @@ class Lagrangian():
 class LagrangianBody(ABC):
 
     @abstractmethod
-    @property
     def DoF(self) -> List[sp.Function]:
         """
         Returns a list of the coordinates that are degrees of freedom of this body
@@ -125,5 +126,5 @@ class LagrangianBody(ABC):
         pass
     
     def lagrangian(self, t: sp.Symbol) -> Lagrangian:
-        """Generates and returns the Lagrangian for this body"""
-        return Lagrangian(self.T(t) - self.U(t))
+        """Generates and returns the (simplified) Lagrangian for this body"""
+        return Lagrangian(sp.simplify(self.T(t).doit()) - sp.simplify(self.U(t).doit()))
