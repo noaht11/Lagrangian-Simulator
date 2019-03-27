@@ -94,13 +94,13 @@ class LagrangianBody(ABC):
     @property
     def DoF(self) -> List[sp.Function]:
         """
-        TODO
+        Returns a list of the coordinates that are degrees of freedom of this body
         """
         pass
 
     @abstractmethod
     def U(self, t: sp.Symbol) -> sp.Expr:
-        """Generates a symbolic expression for the potential energy of the pendulum
+        """Generates a symbolic expression for the potential energy of this body
 
         The zero of potential energy is taken to be at a y coordinate of 0
 
@@ -114,7 +114,7 @@ class LagrangianBody(ABC):
     
     @abstractmethod
     def T(self, t: sp.Symbol) -> sp.Expr:
-        """Generates and returns a symbolic expression for the kinetic energy of the pendulum
+        """Generates and returns a symbolic expression for the kinetic energy of this body
 
         Arguments:
             `t` : a symbol for the time variable
