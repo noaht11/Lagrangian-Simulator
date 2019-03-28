@@ -26,12 +26,62 @@ def unconstrained_DoF(all_DoF: List[sp.Function], constraints: List[Constraint])
             free_DoF.append(DoF)
     return free_DoF
 
-class Lagrangian():
+class Lagrangian:
     """Represents the Lagrangian for a physical system
 
     Attributes:
         `L` : symbolic expression for the Lagrangian of the system
     """
+
+    class ODEExpressions:
+        
+        def __init__(self, qs: List[sp.Expr], q_dots: List[sp.Expr], p_qs: List[sp.Expr], force_exprs: List[sp.Expr], momentum_exprs: List[sp.Expr], q_dot_exprs: List[sp.Expr]):
+            assert(len(qs) == len(q_dots))
+            assert(len(qs) == len(p_qs))
+            assert(len(qs) == len(force_exprs))
+            assert(len(qs) == len(momentum_exprs))
+            assert(len(qs) == len(q_dot_exprs))
+
+            self._qs = qs
+            self._q_dots = q_dots
+            self._p_qs = p_qs
+            self._force_exprs = force_exprs
+            self._momentum_exprs = momentum_exprs
+            self._q_dot_exprs = q_dot_exprs
+
+        def numericize(self, t: sp.Symbol) -> Tuple[Callable[[float, List[float]], List[float]], Callable[[float, List[float]], List[float]], Callable[[float, List[float]], List[float]]]:
+            num_q = len(self._qs)
+
+            p_q_dot_lambdas = list(map(lambda force_expr: sp.lambdify(t + self.qs + self._q_dots, force_expr), self._force_exprs))
+            p_q_lambdas = list(map(lambda momentum_expr: sp.lambdify(t + self.qs + self._q_dots, momentum_expr), self._momentum_exprs))
+            q_dot_lambdas = list(map(lambda q_dot: sp.lambdify(t + self._qs + self._p_qs, q_dot), self._q_dot_exprs))
+
+            def state_to_y(t: float, state: List[float], num_q=num_q, p_q_lambdas=p_q_lambdas) -> List[float]:
+                qs = state[0:num_q]
+                q_dots = state[num_q:]
+
+                p_qs = list(map(lambda p_q_lambda: p_q_lambda(t, *qs, *q_dots), p_q_lambdas))
+
+                return q + p_qs
+            
+            def dy_dt(t: float, y: List[float], num_q=num_q, q_dot_lambdas=q_dot_lambdas, p_q_dot_lambdas=p_q_dot_lambdas) -> List[float]:
+                qs = y[0:num_q]
+                p_qs = y[num_q:]
+
+                q_dots = list(map(lambda q_dot_lambda: q_dot_lambda(t, *qs, *p_qs), q_dot_lambdas))
+                p_q_dots = list(map(lambda p_q_dot_lambda: p_q_dot_lambda(t, *qs, *q_dots), p_q_dot_lambdas))
+
+                return q_dots + p_q_dots
+            
+            def y_to_state(t: float, y: List[float], num_q=num_q, q_dot_lambdas=q_dot_lambdas) -> List[float]:
+                qs = y[0:num_q]
+                p_qs = y[num_q:]
+
+                q_dots = list(map(lambda q_dot_lambda: q_dot_lambda(t, *qs, *p_qs), q_dot_lambdas))
+
+                return q + q_dots
+            
+            return (state_to_y, dy_dt, y_to_state)
 
     def __init__(self, L: sp.Expr):
         self._L = L
@@ -89,6 +139,32 @@ class Lagrangian():
             momenta.append(dL_dqdot)
         
         return (forces, momenta)
+    
+    def _momentum_symbols(self, coordinates: List[sp.Function]) -> List[sp.Symbol]:
+        return list(map(lambda q: sp.Symbol("p_" + str(q)), coordinates))
+    
+    def _momentum_equations(self, t: sp.Symbol, degrees_of_freedom: List[sp.Function], momenta: List[sp.Expr]) -> List[sp.Eq]:
+        p_qs = self._momentum_symbols(degrees_of_freedom)
+
+        eqs = []
+
+        for p_q, momentum in zip(p_qs, momenta):
+            eqs.append(sp.Eq(p_q, momentum))
+        
+        return eqs
+    
+    def _q_dot_expressions(self, t: sp.Symbol, coordinates: List[sp.Function]) -> List[sp.Expr]:
+        return list(map(lambda q: sp.diff(q(t), t), coordinates))
+    
+    def solve(self, t: sp.Symbol, degrees_of_freedom: List[sp.Function], constraints: List[Constraint]) -> "ODEExpressions":
+        (forces, momenta) = self.forces_and_momenta(t, degrees_of_freedom, constraints)
+
+        p_equations = self._momentum_equations(t, degrees_of_freedom, momenta)
+        q_dots = self._q_dot_expressions(t, degrees_of_freedom)
+
+        q_dots_solutions = sp.linsolve(p_equations, q_dots)
+
+        sp.pprint(q_dots_solutions)
 
 class LagrangianBody(ABC):
 

@@ -1,6 +1,5 @@
 from physics.lagrangian import Lagrangian, Constraint
 from physics.pendulum import CompoundPendulumPhysics, n_link_pendulum
-from physics.solvers import LagrangianSolver
 
 import sympy as sp
 
@@ -18,7 +17,6 @@ if __name__ == "__main__":
     constraints = [Constraint(x, sp.S.Zero), Constraint(y, sp.S.Zero)]
     
     L = pendulum.lagrangian(t)
-    L_solver = LagrangianSolver(L)
-    L_solver.solve(t, thetas, constraints)
+    L.solve(t, thetas, constraints)
 
     print("")
