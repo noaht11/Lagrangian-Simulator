@@ -29,14 +29,11 @@ class FunctionNumericSolver(NumericSolver):
         self._dy_dt = dy_dt
         self._y_to_state = y_to_state
     
-    @abstractmethod
     def state_to_y(self, t: float, state: List[float]) -> List[float]:
         return self._state_to_y(t, state)
     
-    @abstractmethod
     def dy_dt(self, t: float, y: List[float]) -> List[float]:
         return self._dy_dt(t, y)
 
-    @abstractmethod
     def y_to_state(self, t: float, y: List[float]) -> List[float]:
         return self._y_to_state(t, y)

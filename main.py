@@ -1,36 +1,53 @@
 import sys
 
 import sympy as sp
+from math import pi
 
 from physics.lagrangian import Lagrangian, Constraint
 from physics.pendulum import CompoundPendulumPhysics, n_link_pendulum
+from physics.solvers import FunctionNumericSolver
+
+def step(text: str):
+    print(text, end=""); sys.stdout.flush()
+    pass
+
+def done():
+    print("Done"); sys.stdout.flush()
+    pass
 
 if __name__ == "__main__":
     print("")
 
-    physics = CompoundPendulumPhysics(
-            L = 1,
-            m = 1,
-            I = 0
+    step("Constructing Pendulum...")
+    pendulum_physics = CompoundPendulumPhysics(
+            L = 5,
+            m = 3,
+            I = 6
         )
+    (pendulum, t, x, y, thetas) = n_link_pendulum(2, pendulum_physics)
+    done()
 
-    print("Constructing Pendulum...", end=""); sys.stdout.flush()
-    (pendulum, t, x, y, thetas) = n_link_pendulum(2, physics)
-    print("Done")
-
-    constraints = [Constraint(x, sp.S.Zero), Constraint(y, sp.S.Zero)]
-
-    print("Calculating Lagrangian...", end=""); sys.stdout.flush() 
+    step("Calculating Lagrangian...")
+    constraints = [Constraint(y, sp.S.Zero)]
     L = pendulum.lagrangian(t)
-    print("Done")
+    done()
 
-    print("Generating Symbolic ODE Equations...", end=""); sys.stdout.flush()
-    odeExpressions = L.solve(t, thetas, constraints)
-    print("Done")
+    step("Generating Symbolic ODE Equations...")
+    odeExpressions = L.solve(t, [x] + thetas, constraints)
+    done()
 
-    print("Converting to Numeric Equations...", end=""); sys.stdout.flush()
+    step("Converting to Numerically Solvable Equations...")
     (state_to_y, dy_dt, y_to_state) = odeExpressions.numericize(t)
-    print("Done")
+    solver = FunctionNumericSolver(state_to_y, dy_dt, y_to_state)
+    done()
 
+    state = [
+        0,
+        pi/2,
+        pi/4,
+        0,
+        2,
+        3
+    ]
 
     print("")

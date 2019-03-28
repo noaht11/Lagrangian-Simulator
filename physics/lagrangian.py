@@ -35,7 +35,7 @@ class Lagrangian:
 
     class ODEExpressions:
         
-        def __init__(self, qs: List[sp.Expr], p_qs: List[sp.Expr], q_dots: List[sp.Expr], force_exprs: List[sp.Expr], momentum_exprs: List[sp.Expr], q_dot_exprs: List[sp.Expr]):
+        def __init__(self, qs: List[sp.Symbol], p_qs: List[sp.Symbol], q_dots: List[sp.Symbol], force_exprs: List[sp.Expr], momentum_exprs: List[sp.Expr], q_dot_exprs: List[sp.Expr]):
             assert(len(qs) == len(p_qs))
             assert(len(qs) == len(q_dots))
             assert(len(qs) == len(force_exprs))
@@ -62,7 +62,7 @@ class Lagrangian:
 
                 p_qs = list(map(lambda p_q_lambda: p_q_lambda(t, *qs, *q_dots), p_q_lambdas))
 
-                return q + p_qs
+                return qs + p_qs
             
             def dy_dt(t: float, y: List[float], num_q=num_q, q_dot_lambdas=q_dot_lambdas, p_q_dot_lambdas=p_q_dot_lambdas) -> List[float]:
                 qs = y[0:num_q]
@@ -79,7 +79,7 @@ class Lagrangian:
 
                 q_dots = list(map(lambda q_dot_lambda: q_dot_lambda(t, *qs, *p_qs), q_dot_lambdas))
 
-                return q + q_dots
+                return qs + q_dots
             
             return (state_to_y, dy_dt, y_to_state)
 
@@ -146,17 +146,19 @@ class Lagrangian:
         # Generate force and momenta expressions
         (forces, momenta) = self.forces_and_momenta(t, degrees_of_freedom, constraints)
 
-        # Generate expressions from coordinate functions
-        qs = list(map(lambda q: q(t), degrees_of_freedom))
+        # Generate symbols for coordinate functions
+        qs = list(map(lambda q: sp.Symbol(str(q)), degrees_of_freedom))
         p_qs = list(map(lambda q: sp.Symbol("p_" + str(q)), degrees_of_freedom))
         q_dots = list(map(lambda q: sp.Symbol(str(q) + "_dot"), degrees_of_freedom))
         
-        # Replace derivates with the corresponding symbols
+        # Replace coordinates with the corresponding symbols
         dq_dts = list(map(lambda q: sp.diff(q(t), t), degrees_of_freedom))
         for i in range(len(degrees_of_freedom)):
             for j in range(len(degrees_of_freedom)):
                 forces[i] = forces[i].subs(dq_dts[j], q_dots[j])
+                forces[i] = forces[i].subs(degrees_of_freedom[j](t), qs[j])
                 momenta[i] = momenta[i].subs(dq_dts[j], q_dots[j])
+                momenta[i] = momenta[i].subs(degrees_of_freedom[j](t), qs[j])
 
         # Generate system of equations to solve for q_dots
         q_dot_eqs = []
