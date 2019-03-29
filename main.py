@@ -5,7 +5,7 @@ from math import pi
 
 from physics.lagrangian import Lagrangian, Constraint
 from physics.pendulum import CompoundPendulumPhysics, n_link_pendulum
-from physics.solvers import FunctionNumericSolver
+from physics.solvers import LagrangianNumericalSolver
 
 def step(text: str):
     print(text, end=""); sys.stdout.flush()
@@ -37,8 +37,7 @@ if __name__ == "__main__":
     done()
 
     step("Converting to Numerically Solvable Equations...")
-    (state_to_y, dy_dt, y_to_state) = odeExpressions.numericize(t)
-    solver = FunctionNumericSolver(state_to_y, dy_dt, y_to_state)
+    solver = LagrangianNumericalSolver.from_ode_expr(odeExpressions)
     done()
 
     state = [
@@ -49,5 +48,7 @@ if __name__ == "__main__":
         2,
         3
     ]
+
+    print(solver.state_to_y(0, state))
 
     print("")

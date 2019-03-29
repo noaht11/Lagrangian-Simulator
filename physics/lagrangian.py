@@ -34,54 +34,36 @@ class Lagrangian:
     """
 
     class ODEExpressions:
-        
-        def __init__(self, qs: List[sp.Symbol], p_qs: List[sp.Symbol], q_dots: List[sp.Symbol], force_exprs: List[sp.Expr], momentum_exprs: List[sp.Expr], q_dot_exprs: List[sp.Expr]):
+        """TODO"""
+
+        def __init__(self, t: sp.Symbol, qs: List[sp.Symbol], p_qs: List[sp.Symbol], q_dots: List[sp.Symbol], force_exprs: List[sp.Expr], momentum_exprs: List[sp.Expr], velocity_exprs: List[sp.Expr]):
             assert(len(qs) == len(p_qs))
             assert(len(qs) == len(q_dots))
             assert(len(qs) == len(force_exprs))
             assert(len(qs) == len(momentum_exprs))
-            assert(len(qs) == len(q_dot_exprs))
+            assert(len(qs) == len(velocity_exprs))
+
+            self._t = t
 
             self._qs = qs
             self._p_qs = p_qs
             self._q_dots = q_dots
             self._force_exprs = force_exprs
             self._momentum_exprs = momentum_exprs
-            self._q_dot_exprs = q_dot_exprs
+            self._velocity_exprs = velocity_exprs
 
-        def numericize(self, t: sp.Symbol) -> Tuple[Callable[[float, List[float]], List[float]], Callable[[float, List[float]], List[float]], Callable[[float, List[float]], List[float]]]:
-            num_q = len(self._qs)
+        @property
+        def num_q(self) -> int:
+            return len(self._qs)
 
-            p_q_dot_lambdas = list(map(lambda force_expr: sp.lambdify([t] + self._qs + self._q_dots, force_expr), self._force_exprs))
-            p_q_lambdas = list(map(lambda momentum_expr: sp.lambdify([t] + self._qs + self._q_dots, momentum_expr), self._momentum_exprs))
-            q_dot_lambdas = list(map(lambda q_dot: sp.lambdify([t] + self._qs + self._p_qs, q_dot), self._q_dot_exprs))
-
-            def state_to_y(t: float, state: List[float], num_q=num_q, p_q_lambdas=p_q_lambdas) -> List[float]:
-                qs = state[0:num_q]
-                q_dots = state[num_q:]
-
-                p_qs = list(map(lambda p_q_lambda: p_q_lambda(t, *qs, *q_dots), p_q_lambdas))
-
-                return qs + p_qs
-            
-            def dy_dt(t: float, y: List[float], num_q=num_q, q_dot_lambdas=q_dot_lambdas, p_q_dot_lambdas=p_q_dot_lambdas) -> List[float]:
-                qs = y[0:num_q]
-                p_qs = y[num_q:]
-
-                q_dots = list(map(lambda q_dot_lambda: q_dot_lambda(t, *qs, *p_qs), q_dot_lambdas))
-                p_q_dots = list(map(lambda p_q_dot_lambda: p_q_dot_lambda(t, *qs, *q_dots), p_q_dot_lambdas))
-
-                return q_dots + p_q_dots
-            
-            def y_to_state(t: float, y: List[float], num_q=num_q, q_dot_lambdas=q_dot_lambdas) -> List[float]:
-                qs = y[0:num_q]
-                p_qs = y[num_q:]
-
-                q_dots = list(map(lambda q_dot_lambda: q_dot_lambda(t, *qs, *p_qs), q_dot_lambdas))
-
-                return qs + q_dots
-            
-            return (state_to_y, dy_dt, y_to_state)
+        def force_lambdas(self) -> List[Callable]:
+            return list(map(lambda force_expr: sp.lambdify([self._t] + self._qs + self._q_dots, force_expr), self._force_exprs))
+        
+        def momentum_lambdas(self) -> List[Callable]:
+            return list(map(lambda momentum_expr: sp.lambdify([self._t] + self._qs + self._q_dots, momentum_expr), self._momentum_exprs))
+        
+        def velocity_lambdas(self) -> List[Callable]:
+            return list(map(lambda velocity_expr: sp.lambdify([self._t] + self._qs + self._p_qs, velocity_expr), self._velocity_exprs))
 
     def __init__(self, L: sp.Expr):
         self._L = L
@@ -160,17 +142,17 @@ class Lagrangian:
                 momenta[i] = momenta[i].subs(dq_dts[j], q_dots[j])
                 momenta[i] = momenta[i].subs(degrees_of_freedom[j](t), qs[j])
 
-        # Generate system of equations to solve for q_dots
-        q_dot_eqs = []
+        # Generate system of equations to solve for velocities
+        velocity_eqs = []
 
         for p_q, momentum in zip(p_qs, momenta):
-            q_dot_eqs.append(sp.Eq(p_q, momentum))
+            velocity_eqs.append(sp.Eq(p_q, momentum))
 
         # Solve the system of equations to get expressions for the q_dots
-        q_dot_solutions, = sp.linsolve(q_dot_eqs, q_dots)
-        q_dot_exprs = list(q_dot_solutions)
+        velocity_solutions, = sp.linsolve(velocity_eqs, q_dots)
+        velocities = list(velocity_solutions)
 
-        return Lagrangian.ODEExpressions(qs, p_qs, q_dots, forces, momenta, q_dot_exprs)
+        return Lagrangian.ODEExpressions(t, qs, p_qs, q_dots, forces, momenta, velocities)
 
 class LagrangianBody(ABC):
 
