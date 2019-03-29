@@ -172,8 +172,6 @@ class MultiPendulum(LagrangianBody):
 
     @property
     def this(self) -> SinglePendulum: return self._this
-    @property
-    def constraints(self) -> List[Constraint]: return self._constraints
 
     @property
     def next(self) -> "MultiPendulum": return self._next
@@ -185,23 +183,23 @@ class MultiPendulum(LagrangianBody):
         else:
             return self.this.endpoint(t)
     
-    def this_DoF(self) -> List[sp.Function]:
+    def _this_DoF(self) -> List[sp.Function]:
         """Returns a list of only those coordinates that are unconstrained degrees of freedom"""
-        DoF = self.this.DoF()
-        if (self.constraints is not None):
-            DoF = unconstrained_DoF(DoF, self.constraints)
+        DoF = self._this.DoF()
+        if (self._constraints is not None):
+            DoF = unconstrained_DoF(DoF, self._constraints)
         return DoF
     
-    def constrain(self, t: sp.Symbol, expression: sp.Expr) -> sp.Expr:
+    def _apply_constraints(self, t: sp.Symbol, expression: sp.Expr) -> sp.Expr:
         constrained = expression
-        if self.constraints is not None:
-            for constraint in self.constraints:
+        if self._constraints is not None:
+            for constraint in self._constraints:
                 constrained = constraint.apply_to(t, constrained)
         return constrained
 
     def DoF(self) -> List[sp.Function]:
         """Implementation of superclass method"""
-        DoF = self.this_DoF() # Only include unconstrained degrees of freedom
+        DoF = self._this_DoF() # Only include unconstrained degrees of freedom
         if (self.next is not None):
             DoF += self.next.DoF()
         return DoF
@@ -216,7 +214,7 @@ class MultiPendulum(LagrangianBody):
             U += self.next.U(t)
 
         # Apply constraints    
-        U = self.constrain(t, U)
+        U = self._apply_constraints(t, U)
 
         return U
     
@@ -230,7 +228,7 @@ class MultiPendulum(LagrangianBody):
             T += self.next.T(t)
         
         # Apply constraints
-        T = self.constrain(t, T)
+        T = self._apply_constraints(t, T)
 
         return T
     

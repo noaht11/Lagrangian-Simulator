@@ -9,22 +9,23 @@ from physics.solvers import LagrangianNumericalSolver
 
 def step(text: str):
     print(text, end=""); sys.stdout.flush()
-    pass
 
 def done():
     print("Done"); sys.stdout.flush()
-    pass
 
 if __name__ == "__main__":
     print("")
 
     step("Constructing Pendulum...")
+    # Construction
     pendulum_physics = CompoundPendulumPhysics(
             L = 5,
             m = 3,
             I = 6
         )
     (pendulum, t, x, y, thetas) = n_link_pendulum(2, pendulum_physics)
+    # Constraints
+    pendulum = pendulum.constrain(Constraint(y, sp.S.Zero))
     done()
 
     step("Calculating Lagrangian...")
@@ -32,9 +33,7 @@ if __name__ == "__main__":
     done()
 
     step("Generating Symbolic ODE Equations...")
-    degrees_of_freedom = [x] + thetas
-    constraints = [Constraint(y, sp.S.Zero)]
-    odeExpressions = L.solve(t, degrees_of_freedom, constraints)
+    odeExpressions = L.solve()
     done()
 
     step("Converting to Numerically Solvable Equations...")

@@ -30,7 +30,9 @@ class Lagrangian:
     """Represents the Lagrangian for a physical system
 
     Attributes:
-        `L` : symbolic expression for the Lagrangian of the system
+        `L`   : symbolic expression for the Lagrangian of the system
+        `t`   : a symbol for the time variable
+        `DoF` : degrees of freedom as a List of symbolic functions representing the coordinates whose forces and momenta should be derived
     """
 
     class ODEExpressions:
@@ -65,11 +67,10 @@ class Lagrangian:
         def velocity_lambdas(self) -> List[Callable]:
             return list(map(lambda velocity_expr: sp.lambdify([self._t] + self._qs + self._p_qs, velocity_expr), self._velocity_exprs))
 
-    def __init__(self, L: sp.Expr):
+    def __init__(self, L: sp.Expr, t: sp.Symbol, DoF: List[sp.Function]):
         self._L = L
-    
-    @property
-    def L(self) -> sp.Expr: return self._L
+        self._t = t
+        self._DoF = DoF
 
     def __str__(self):
         return str(self.L)
@@ -78,17 +79,12 @@ class Lagrangian:
         """Pretty prints the symbolic expression for this Lagrangian"""
         sp.pprint(self.L)
     
-    def forces_and_momenta(self, t: sp.Symbol, degrees_of_freedom: List[sp.Function], constraints: List[Constraint]) -> Tuple[List[sp.Expr], List[sp.Expr]]:
+    def forces_and_momenta(self) -> Tuple[List[sp.Expr], List[sp.Expr]]:
         """Calculates the generalized forces and momenta for this Lagrangian for each of the provided degrees of freedom
 
         If any coordinates are to be constrained by specific values or expressions these constrains should be passed in the `constraints` argument.
 
         All coordinates in the Lagrangian should appear in EITHER the `degrees_of_freedom` OR the `constraints`, but NOT BOTH.
-
-        Arguments:
-            `t`                  : a symbol for the time variable
-            `degrees_of_freedom` : a List of symbolic functions representing the coordinates whose forces and momenta should be derived
-            `constraints`        : a List of Constraint objects indicating coordinates that should be replaced with explicit expressions prior to calculating forces and momenta.
         
         Returns:
             Tuple of the form (`forces`, `momenta`):
@@ -96,25 +92,20 @@ class Lagrangian:
                 `momenta` is a List of generalized momenta (each momentum is a symbolic expression and corresponds to the coordinate at the same index in the `degrees_of_freedom` list)
         """
         # Convenience variable for Lagrangian expression
-        L = self.L
-        
-        # Substitute in constraints
-        for constraint in constraints:
-            L = constraint.apply_to(t, L)
-
-        # Simplify the final Lagrangian
-        L = sp.simplify(L)
+        L = self._L
+        t = self._t
+        DoF = self._DoF
 
         # Get generalized forces
         forces = []
-        for q in degrees_of_freedom:
+        for q in DoF:
             dL_dq = sp.diff(L, q(t)).doit()
             dL_dq = sp.simplify(dL_dq)
             forces.append(dL_dq)
 
         # Get generalized momenta
         momenta = []
-        for q in degrees_of_freedom:
+        for q in DoF:
             q_dot = sp.diff(q(t), t)
             dL_dqdot = sp.diff(L, q_dot).doit()
             dL_dqdot = sp.simplify(dL_dqdot)
@@ -122,20 +113,26 @@ class Lagrangian:
         
         return (forces, momenta)
         
-    def solve(self, t: sp.Symbol, degrees_of_freedom: List[sp.Function], constraints: List[Constraint]) -> "ODEExpressions":
+    def solve(self) -> "ODEExpressions":
         """TODO"""
+        L = self._L
+        t = self._t
+        DoF = self._DoF
+
         # Generate force and momenta expressions
-        (forces, momenta) = self.forces_and_momenta(t, degrees_of_freedom, constraints)
+        (forces, momenta) = self.forces_and_momenta()
+
+        
 
         # Generate symbols for coordinate functions
-        qs = list(map(lambda q: sp.Symbol(str(q)), degrees_of_freedom))
-        p_qs = list(map(lambda q: sp.Symbol("p_" + str(q)), degrees_of_freedom))
-        q_dots = list(map(lambda q: sp.Symbol(str(q) + "_dot"), degrees_of_freedom))
+        qs = list(map(lambda q: sp.Symbol(str(q)), DoF))
+        p_qs = list(map(lambda q: sp.Symbol("p_" + str(q)), DoF))
+        q_dots = list(map(lambda q: sp.Symbol(str(q) + "_dot"), DoF))
         
         # Replace coordinates with the corresponding symbols
-        dq_dts = list(map(lambda q: sp.diff(q(t), t), degrees_of_freedom))
-        for i in range(len(degrees_of_freedom)):
-            for j in range(len(degrees_of_freedom)):
+        dq_dts = list(map(lambda q: sp.diff(q(t), t), DoF))
+        for i in range(len(DoF)):
+            for j in range(len(DoF)):
                 forces[i] = forces[i].subs(dq_dts[j], q_dots[j])
                 forces[i] = forces[i].subs(degrees_of_freedom[j](t), qs[j])
                 momenta[i] = momenta[i].subs(dq_dts[j], q_dots[j])
@@ -190,4 +187,32 @@ class LagrangianBody(ABC):
     
     def lagrangian(self, t: sp.Symbol) -> Lagrangian:
         """Generates and returns the (simplified) Lagrangian for this body"""
-        return Lagrangian(sp.simplify(self.T(t).doit()) - sp.simplify(self.U(t).doit()))
+        return Lagrangian(sp.simplify(self.T(t).doit()) - sp.simplify(self.U(t).doit()), t, self.DoF())
+    
+    def constrain(self, *constraints: Constraint):
+        return ConstrainedLagrangianBody(self, *constraints)
+
+class ConstrainedLagrangianBody(LagrangianBody):
+
+    def __init__(self, body: LagrangianBody, *constraints: Constraint):
+        self.__body = body
+        self.__constraints = constraints
+    
+    def DoF(self) -> List[sp.Function]:
+        return unconstrained_DoF(self.__body.DoF(), self.__constraints)
+
+    def U(self, t: sp.Symbol) -> sp.Expr:
+        U = self.__body.U(t)
+
+        for constraint in self.__constraints:
+            constraint.apply_to(t, U)
+        
+        return U.simplify()
+    
+    def T(self, t: sp.Symbol) -> sp.Expr:
+        T = self.__body.T(t)
+
+        for constraint in self.__constraints:
+            constraint.apply_to(t, T)
+        
+        return T.simplify()
