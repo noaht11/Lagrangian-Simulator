@@ -123,8 +123,7 @@ class Lagrangian:
         return (forces, momenta)
         
     def solve(self, t: sp.Symbol, degrees_of_freedom: List[sp.Function], constraints: List[Constraint]) -> "ODEExpressions":
-        """TODO
-        """
+        """TODO"""
         # Generate force and momenta expressions
         (forces, momenta) = self.forces_and_momenta(t, degrees_of_freedom, constraints)
 
@@ -148,7 +147,7 @@ class Lagrangian:
         for p_q, momentum in zip(p_qs, momenta):
             velocity_eqs.append(sp.Eq(p_q, momentum))
 
-        # Solve the system of equations to get expressions for the q_dots
+        # Solve the system of equations to get expressions for the velocities
         velocity_solutions, = sp.linsolve(velocity_eqs, q_dots)
         velocities = list(velocity_solutions)
 

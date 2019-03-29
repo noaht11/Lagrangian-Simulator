@@ -74,21 +74,31 @@ class ODEINTTimeEvolver(TimeEvolver):
 
 class SimulationBody(ABC):
 
+    def __init__(self, init_state: List[float]):
+        self._state = init_state
+
     @property
-    @abstractmethod
-    def state(self):
-        pass
+    def state(self) -> List[float]:
+        return self._state
     
     @state.setter
+    def state(self, value: List[float]):
+        self._state = value
+    
     @abstractmethod
-    def state(self, value):
+    def U(self, t: float) -> float:
+        pass
+    
+    @abstractmethod
+    def T(self, t: float) -> float:
         pass
 
 
 # Class that manages the evolution of the double pendulum over time
 class Simulation:
-    def __init__(self, body: SimulationBody, time_evolver: TimeEvolver):#, var_trackers: List[float] = []):
+    def __init__(self, body: SimulationBody, solver: NumericSolver, time_evolver: TimeEvolver):#, var_trackers: List[float] = []):
         self._body = body
+        self._solver = solver
         self._time_evolver = time_evolver
 
         self._init_state = self._body.state
@@ -97,10 +107,10 @@ class Simulation:
         # self.__t_tracker = VariableTracker(0, lambda t, state, prop, behavior: t)
         # self.__var_trackers = var_trackers
 
+    @property
     def body(self) -> SimulationBody: return self._body
-    def time_evolver(self) -> TimeEvolver: return self.__time_evolver
-    
-    def elapsed_time(self) -> float: return self.__elapsed_time
+    @property
+    def elapsed_time(self) -> float: return self._elapsed_time
 
     # def t_tracker(self) -> VariableTracker: return self.__t_tracker
     # def var_trackers(self) -> List[VariableTracker]: return self.__var_trackers
@@ -122,18 +132,18 @@ class Simulation:
     # Progresses the simulation through a time step, dt
     def step(self, dt: float):
         # Calculate next state
-        self.time_evolver().evolve(self.pendulum(), self.behavior(), self.__elapsed_time, dt)
+        self._time_evolver.evolve(self.elapsed_time, self.body.state, self._solver, dt)
         # Update elapsed time
-        self.__elapsed_time += dt
+        self._elapsed_time += dt
 
         # Update variable trackers
-        self.__t_tracker.track(self.__elapsed_time, self.pendulum().state(), self.pendulum().prop(), self.behavior())
-        for tracker in self.__var_trackers:
-            tracker.track(self.__elapsed_time, self.pendulum().state(), self.pendulum().prop(), self.behavior())
+        # self.__t_tracker.track(self.__elapsed_time, self.pendulum().state(), self.pendulum().prop(), self.behavior())
+        # for tracker in self.__var_trackers:
+        #     tracker.track(self.__elapsed_time, self.pendulum().state(), self.pendulum().prop(), self.behavior())
 
     # Progresses the simulation up to absolute time, t_final, in steps of dt
     def step_until(self, dt: float, t_final: float):
-        while (self.elapsed_time() < t_final):
+        while (self.elapsed_time < t_final):
             self.step(dt)
     
     # Progresses the simulation through an amount of time, delta_t, in steps of dt

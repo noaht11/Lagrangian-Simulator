@@ -28,12 +28,13 @@ if __name__ == "__main__":
     done()
 
     step("Calculating Lagrangian...")
-    constraints = [Constraint(y, sp.S.Zero)]
     L = pendulum.lagrangian(t)
     done()
 
     step("Generating Symbolic ODE Equations...")
-    odeExpressions = L.solve(t, [x] + thetas, constraints)
+    degrees_of_freedom = [x] + thetas
+    constraints = [Constraint(y, sp.S.Zero)]
+    odeExpressions = L.solve(t, degrees_of_freedom, constraints)
     done()
 
     step("Converting to Numerically Solvable Equations...")
