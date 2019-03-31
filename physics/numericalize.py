@@ -58,7 +58,8 @@ class Numericalizer(ABC):
 
     @property
     @abstractmethod
-    def lagrangian_body(self) -> LagrangianBody: return self.__lagrangian_body
+    def lagrangian_body(self) -> LagrangianBody:
+        pass
     
     def numerical_solver(self) -> NumericalSolver:
         ode_expr = self.lagrangian_body.lagrangian().solve()
