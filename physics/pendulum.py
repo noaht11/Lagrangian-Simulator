@@ -5,7 +5,7 @@ from math import pi
 import sympy as sp
 import scipy.constants
 
-from physics.lagrangian import LagrangianBody, Constraint, unconstrained_DoF
+from physics.lagrangian import LagrangianBody, DegreeOfFreedom, Constraint, unconstrained_DoF
 
 sp.init_printing()
 
@@ -23,7 +23,7 @@ def neg_pi_to_pi(theta: float) -> float:
 # BASE CLASSES
 ###################################################################################################################################################################################
 
-class SinglePendulum(LagrangianBody):
+class SinglePendulum(LagrangianBody.LagrangianPhysics):
     """Implementation of a single pendulum as a lagrangian body
 
     A single pendulum is considered to have 3 degrees of freedom:
@@ -40,7 +40,7 @@ class SinglePendulum(LagrangianBody):
         `theta` : angle of the pendulum (as a symbolic function of time) with respect to the vertical through the pivot
     """
     
-    class Coordinates:
+    class PendulumCoordinates:
         """Holds the symbolic functions that represent the possible degrees of freedom of the pendulum
 
         This class is IMMUTABLE.
@@ -51,19 +51,19 @@ class SinglePendulum(LagrangianBody):
             `theta` : angle of the pendulum (as a symbolic function of time) with respect to the vertical through the pivot
         """
 
-        def __init__(self, x: sp.Function, y: sp.Function, theta: sp.Function):
+        def __init__(self, x: DegreeOfFreedom, y: DegreeOfFreedom, theta: DegreeOfFreedom):
             self._x = x
             self._y = y
             self._theta = theta
         
         @property
-        def x(self)     -> sp.Function : return self._x
+        def x(self)     -> DegreeOfFreedom : return self._x
         @property
-        def y(self)     -> sp.Function : return self._y
+        def y(self)     -> DegreeOfFreedom : return self._y
         @property
-        def theta(self) -> sp.Function : return self._theta
+        def theta(self) -> DegreeOfFreedom : return self._theta
 
-    class Physics(ABC):
+    class PendulumPhysics(ABC):
         """Abstract base class for representing the physical properties and behavior of the pendulum
         
         This class defines the following abstract methods as they are considered to exist for all pendulums, but their implementation depends on the type of pendulum:
@@ -77,89 +77,69 @@ class SinglePendulum(LagrangianBody):
         """
 
         @abstractmethod
-        def endpoint(self, t: sp.Symbol, coordinates: "Coordinates") -> Tuple[sp.Expr, sp.Expr]:
-            """Generates symbolic expressions for the coordinates of the endpoint of the pendulum
-
-            The endpoint of the pendulum is the point where a subsequent pendulum would be attached if a chain of pendulums were to be constructed.
-
-            Arguments:
-                `t` : a symbol for the time variable
-
-            Returns:
-                Tuple of (x_end, y_end) where each coordinate is a symbolic expression
-            """
+        def endpoint(self, t: sp.Symbol, coordinates: PendulumCoordinates) -> Tuple[sp.Expr, sp.Expr]:
+            """See `SinglePendulum.endpoint`"""
             pass
 
         @abstractmethod
-        def COM(self, t: sp.Symbol, coordinates: "Coordinates") -> Tuple[sp.Expr, sp.Expr]:
-            """Generates symbolic expressions for the coordinates of the centre of mass (COM) of the pendulum
-
-            Arguments:
-                `t` : a symbol for the time variable
-
-            Returns:
-                Tuple of (x_COM, y_COM) where each coordinate is a symbolic expression
-            """
+        def COM(self, t: sp.Symbol, coordinates: PendulumCoordinates) -> Tuple[sp.Expr, sp.Expr]:
+            """See `SinglePendulum.COM`"""
             pass
 
         @abstractmethod
-        def U(self, t: sp.Symbol, coordinates: "Coordinates") -> sp.Expr:
-            """Generates a symbolic expression for the potential energy of the pendulum
-
-            The zero of potential energy is taken to be at a y coordinate of 0
-
-            Arguments:
-                `t` : a symbol for the time variable
-
-            Returns:
-                A symbolic expression for the potential energy of the pendulum
-            """
+        def U(self, t: sp.Symbol, coordinates: PendulumCoordinates) -> sp.Expr:
+            """See `SinglePendulum.U`"""
             pass
         
         @abstractmethod
-        def T(self, t: sp.Symbol, coordinates: "Coordinates") -> sp.Expr:
-            """Generates and returns a symbolic expression for the kinetic energy of the pendulum
-
-            Arguments:
-                `t` : a symbol for the time variable
-
-            Returns:
-                A symbolic expression for the kinetic energy of the pendulum
-            """
+        def T(self, t: sp.Symbol, coordinates: PendulumCoordinates) -> sp.Expr:
+            """See `SinglePendulum.T`"""
             pass
 
-    def __init__(self, coordinates: Coordinates, physics: Physics):
+    def __init__(self, coordinates: PendulumCoordinates, physics: PendulumPhysics):
         self._coordinates = coordinates
         self._physics = physics
     
     @property
-    def coordinates(self) -> Coordinates : return self._coordinates
+    def coordinates(self) -> PendulumCoordinates : return self._coordinates
 
-    def DoF(self) -> List[sp.Function]:
-        """Implementation of superclass method"""
-        return [self.coordinates.x, self.coordinates.y, self.coordinates.theta]
-    
     def endpoint(self, t: sp.Symbol) -> Tuple[sp.Expr, sp.Expr]:
-        """Wrapper for `Physics.endpoint`"""
+        """Generates symbolic expressions for the coordinates of the endpoint of the pendulum
+
+        The endpoint of the pendulum is the point where a subsequent pendulum would be attached if a chain of pendulums were to be constructed.
+
+        Arguments:
+            `t` : a symbol for the time variable
+
+        Returns:
+            Tuple of (x_end, y_end) where each coordinate is a symbolic expression
+        """
         return self._physics.endpoint(t, self.coordinates)
     
     def COM(self, t: sp.Symbol) -> Tuple[sp.Expr, sp.Expr]:
-        """Wrapper for `Physics.COM`"""
+        """Generates symbolic expressions for the coordinates of the centre of mass (COM) of the pendulum
+
+        Arguments:
+            `t` : a symbol for the time variable
+
+        Returns:
+            Tuple of (x_COM, y_COM) where each coordinate is a symbolic expression
+        """
         return self._physics.COM(t, self.coordinates)
 
+    def DoFs(self) -> List[sp.Function]:
+        """Implementation of superclass method"""
+        return [self.coordinates.x, self.coordinates.y, self.coordinates.theta]
+
     def U(self, t: sp.Symbol) -> sp.Expr:
-        """Implementation of superclass method
-        Wrapper for `Physics.U`
-        """
+        """Implementation of superclass method"""
         return self._physics.U(t, self.coordinates)
     
     def T(self, t: sp.Symbol) -> sp.Expr:
-        """Implementation of superclass method
-        Wrapper for `Physics.T`
-        """
+        """Implementation of superclass method"""
         return self._physics.T(t, self.coordinates)
 
-class MultiPendulum(LagrangianBody):
+class MultiPendulum(LagrangianBody.LagrangianPhysics):
     """
     TODO
     """
@@ -183,11 +163,13 @@ class MultiPendulum(LagrangianBody):
         else:
             return self.this.endpoint(t)
     
-    def _this_DoF(self) -> List[sp.Function]:
+    def _this_DoF(self) -> List[DegreeOfFreedom]:
         """Returns a list of only those coordinates that are unconstrained degrees of freedom"""
         DoF = self._this.DoF()
         if (self._constraints is not None):
+            sp.pprint(DoF)
             DoF = unconstrained_DoF(DoF, self._constraints)
+            sp.pprint(DoF)
         return DoF
     
     def _apply_constraints(self, t: sp.Symbol, expression: sp.Expr) -> sp.Expr:
@@ -197,7 +179,7 @@ class MultiPendulum(LagrangianBody):
                 constrained = constraint.apply_to(t, constrained)
         return constrained
 
-    def DoF(self) -> List[sp.Function]:
+    def DoF(self) -> List[DegreeOfFreedom]:
         """Implementation of superclass method"""
         DoF = self._this_DoF() # Only include unconstrained degrees of freedom
         if (self.next is not None):
@@ -262,7 +244,7 @@ class MultiPendulum(LagrangianBody):
 # SPECIFIC PENDULUM IMPLEMENTATIONS
 ###################################################################################################################################################################################
 
-class CompoundPendulumPhysics(SinglePendulum.Physics):
+class CompoundPendulumPhysics(SinglePendulum.PendulumPhysics):
     """Implementation of SinglePendulum for a single compound pendulum (a pendulum whose mass is evenly distributed along its length)
 
     Attributes:
@@ -288,7 +270,7 @@ class CompoundPendulumPhysics(SinglePendulum.Physics):
     @property
     def extras(self) -> Dict[str, float]: return self._extras
 
-    def endpoint(self, t: sp.Symbol, coordinates: SinglePendulum.Coordinates) -> Tuple[sp.Expr, sp.Expr]:
+    def endpoint(self, t: sp.Symbol, coordinates: SinglePendulum.PendulumCoordinates) -> Tuple[sp.Expr, sp.Expr]:
         """Implementation of superclass method"""
         L = self.L
         x = coordinates.x
@@ -300,7 +282,7 @@ class CompoundPendulumPhysics(SinglePendulum.Physics):
 
         return (x_end, y_end)
 
-    def COM(self, t: sp.Symbol, coordinates: SinglePendulum.Coordinates) -> Tuple[sp.Expr, sp.Expr]:
+    def COM(self, t: sp.Symbol, coordinates: SinglePendulum.PendulumCoordinates) -> Tuple[sp.Expr, sp.Expr]:
         """Implementation of superclass method"""
         L = self.L
         x = coordinates.x
@@ -312,7 +294,7 @@ class CompoundPendulumPhysics(SinglePendulum.Physics):
 
         return (x_com, y_com)
 
-    def U(self, t: sp.Symbol, coordinates: SinglePendulum.Coordinates) -> sp.Expr:
+    def U(self, t: sp.Symbol, coordinates: SinglePendulum.PendulumCoordinates) -> sp.Expr:
         """Implementation of superclass method"""
         m = self.m
         _, y_COM = self.COM(t, coordinates)
@@ -321,7 +303,7 @@ class CompoundPendulumPhysics(SinglePendulum.Physics):
 
         return m * g * y_COM
 
-    def T(self, t: sp.Symbol, coordinates: SinglePendulum.Coordinates) -> sp.Expr:
+    def T(self, t: sp.Symbol, coordinates: SinglePendulum.PendulumCoordinates) -> sp.Expr:
         """Implementation of superclass method"""
         m = self.m
         I = self.I
@@ -341,7 +323,7 @@ class CompoundPendulumPhysics(SinglePendulum.Physics):
 # BUILDERS
 ###################################################################################################################################################################################
 
-def n_link_pendulum(n: int, physics: SinglePendulum.Physics) -> Tuple[MultiPendulum, sp.Symbol, sp.Function, sp.Function, List[sp.Function]]:
+def n_link_pendulum(n: int, physics: SinglePendulum.PendulumPhysics) -> Tuple[MultiPendulum, sp.Symbol, sp.Function, sp.Function, List[sp.Function]]:
     """
     TODO
     """
@@ -362,7 +344,7 @@ def n_link_pendulum(n: int, physics: SinglePendulum.Physics) -> Tuple[MultiPendu
         ys.append(y)
         thetas.append(theta)
 
-        single_pendulum = SinglePendulum(SinglePendulum.Coordinates(x, y, theta), physics)
+        single_pendulum = SinglePendulum(SinglePendulum.PendulumCoordinates(x, y, theta), physics)
 
         if (root_pendulum is None):
             root_pendulum = MultiPendulum(single_pendulum)
