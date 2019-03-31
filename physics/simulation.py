@@ -1,56 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Callable
 
-from physics.solvers import NumericSolver
+from physics.solvers import NumericalSolver
 
 ###################################################################################################################################################################################
 # ABSTRACT BASE CLASSES
 ###################################################################################################################################################################################
 
-# Abstract Base Class for implementing numerical methods to solve the time evolution
-class TimeEvolver(ABC):
-
-    def evolve(self, t: float, state: List[float], solver: NumericSolver, dt: float) -> List[float]:
-        """Updates the state to it's new state at time t + dt according to the provided solver"""
-        # Convert the current state to y vector (at time t)
-        y_0 = solver.state_to_y(t, state)
-
-        # Solve the ODE
-        y_1 = self.solve_ode(t, y_0, solver.dy_dt, dt)
-
-        # Convert resulting y vector back to state (at time d + dt now)
-        state_1 = solver.y_to_state(t + dt, y_1)
-
-        # Return updated state
-        return state_1
-    
-    # Solves the ODE defined by:
-    #
-    #   dy/dt = dy_dt(t, y)
-    # 
-    # with initial condition:
-    #
-    #   y(t_0) = y_0
-    #
-    # to find:
-    #
-    #   y(t) between t_0 and t_0 + dt
-    #
-    @abstractmethod
-    def solve_ode(self, t_0: float, y_0: List[float], dy_dt: Callable[[float, List[float]], List[float]], dt: float) -> List[float]:
-        pass
-
-###################################################################################################################################################################################
-# TIME EVOLVER IMPLEMENTATIONS
-###################################################################################################################################################################################
-
-import numpy as np
-from scipy.integrate import odeint
-
-# TimeEvolver implementation that uses scipy.integrate.odeint to solve ODEs
-class ODEINTTimeEvolver(TimeEvolver):
-    def solve_ode(self, t_0: float, y_0: List[float], dy_dt: Callable[[float, List[float]], List[float]], dt: float) -> List[float]:
-        return odeint(dy_dt, y_0, [t_0, t_0 + dt], tfirst = True)[1]
 
 ###################################################################################################################################################################################
 # SIMULATION
@@ -72,31 +28,10 @@ class ODEINTTimeEvolver(TimeEvolver):
 #     def max(self):
 #         return np.max(self.data)
 
-class SimulationBody(ABC):
-
-    def __init__(self, init_state: List[float]):
-        self._state = init_state
-
-    @property
-    def state(self) -> List[float]:
-        return self._state
-    
-    @state.setter
-    def state(self, value: List[float]):
-        self._state = value
-    
-    @abstractmethod
-    def U(self, t: float) -> float:
-        pass
-    
-    @abstractmethod
-    def T(self, t: float) -> float:
-        pass
-
 
 # Class that manages the evolution of the double pendulum over time
 class Simulation:
-    def __init__(self, body: SimulationBody, solver: NumericSolver, time_evolver: TimeEvolver):#, var_trackers: List[float] = []):
+    def __init__(self, body: SimulationBody, solver: NumericalSolver, time_evolver: TimeEvolver):#, var_trackers: List[float] = []):
         self._body = body
         self._solver = solver
         self._time_evolver = time_evolver

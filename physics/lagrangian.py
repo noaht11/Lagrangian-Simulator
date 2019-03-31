@@ -3,7 +3,19 @@ from typing import List, Tuple, Callable
 
 import sympy as sp
 
-class DegreeOfFreedom(sp.Function):
+class DegreeOfFreedom:
+
+    def __init__(self, name: str):
+        self._coordinate = sp.Function(name)
+
+    @property
+    def coordinate(self) -> sp.Function: return self._coordinate
+
+    def __call__(self, *args):
+        return self._coordinate(*args)
+
+    def __str__(self):
+        return str(self._coordinate)
 
     def symbol(self) -> sp.Symbol:
         return sp.Symbol(str(self._coordinate))
@@ -27,6 +39,10 @@ class Constraint:
     def coordinate(self) -> sp.Function: return self._coordinate
     @property
     def expression(self) -> sp.Expr: return self._expression
+
+    def __str__(self):
+        # TODO also print expression
+        return str(self._coordinate)
 
     def apply_to(self, t: sp.Symbol, E: sp.Expr) -> sp.Expr:
         """Applies this constraint to the provided expression and returns the newly constrained expression"""
@@ -64,22 +80,52 @@ class Lagrangian:
         def num_q(self) -> int:
             return len(self._qs)
 
-        def force_lambdas(self) -> List[Callable]:
+        def force_lambdas(self) -> List[Callable[..., float]]:
             return list(map(lambda force_expr: sp.lambdify([self._t] + self._qs + self._q_dots, force_expr), self._force_exprs))
         
-        def momentum_lambdas(self) -> List[Callable]:
+        def momentum_lambdas(self) -> List[Callable[..., float]]:
             return list(map(lambda momentum_expr: sp.lambdify([self._t] + self._qs + self._q_dots, momentum_expr), self._momentum_exprs))
         
-        def velocity_lambdas(self) -> List[Callable]:
+        def velocity_lambdas(self) -> List[Callable[..., float]]:
             return list(map(lambda velocity_expr: sp.lambdify([self._t] + self._qs + self._p_qs, velocity_expr), self._velocity_exprs))
 
-    def unconstrained_DoFs(DoFs: List[DegreeOfFreedom], constraints: List[Constraint]):
+    @staticmethod
+    def same_coordinate(a: sp.Function, b: sp.Function) -> bool:
+        return str(a) == str(b)
+
+    @staticmethod
+    def unconstrained_DoFs(DoFs: List[DegreeOfFreedom], constraints: List[Constraint]) -> List[DegreeOfFreedom]:
         free_DoFs = []
         for DoF in DoFs:
-            if (not any((lambda constraint: constraint.coordinate == DoF) for constraint in constraints)):
-                # Only include if none of the constraint coordinates are equal to the DoF
-                free_DoFs.append(DoF)
+            constrained = False
+            for constraint in constraints:
+                if (Lagrangian.same_coordinate(constraint.coordinate, DoF.coordinate)):
+                    constrained = True
+            if not constrained: free_DoFs.append(DoF)
         return free_DoFs
+
+    @staticmethod
+    def symbolize(expressions: List[sp.Expr], t: sp.Symbol, DoFs: List[DegreeOfFreedom]) -> Tuple[List[sp.Expr], List[sp.Symbol], List[sp.Symbol]]:
+        qs = list(map(lambda DoF: DoF.symbol(), DoFs))
+        q_dots = list(map(lambda DoF: DoF.velocity_symbol(), DoFs))
+
+        dq_dts = list(map(lambda q: sp.diff(q(t), t), DoFs))
+
+        def symbolize_expr(expr: sp.Expr, t: sp.Symbol, DoFs: List[DegreeOfFreedom], qs: List[sp.Symbol], q_dots: sp.Symbol, dq_dts: List[sp.Expr]) -> sp.Expr:
+            for i in range(len(DoFs)):
+                # Note: we have to do the derivative substitutions first
+                #       if we did the coordinate ones first, the derivatives would turn into derivatives of symbols instead of functions
+                #       then the derivative substitutions wouldn't match and would fail
+
+                # Substitute derivative
+                expr = expr.subs(dq_dts[i], q_dots[i])
+                # Substitute coordinate
+                expr = expr.subs(DoFs[i](t), qs[i])
+            return expr
+
+        symbolized = list(map(lambda expr: symbolize_expr(expr, t, DoFs, qs, q_dots, dq_dts), expressions))
+
+        return (symbolized, qs, q_dots)
 
     def __init__(self, L: sp.Expr, t: sp.Symbol, DoFs: List[DegreeOfFreedom]):
         self._L = L
@@ -136,21 +182,13 @@ class Lagrangian:
         # Generate force and momenta expressions
         (forces, momenta) = self.forces_and_momenta()
 
-        # Generate symbols for coordinate functions
-        qs = list(map(lambda q: q.symbol(), DoFs))
-        p_qs = list(map(lambda q: q.momentum_symbol(), DoFs))
-        q_dots = list(map(lambda q: q.velocity_symbol(), DoFs))
-        
         # Replace coordinates with the corresponding symbols
-        dq_dts = list(map(lambda q: sp.diff(q(t), t), DoFs))
-        for i in range(len(DoFs)):
-            for j in range(len(DoFs)):
-                forces[i] = forces[i].subs(dq_dts[j], q_dots[j])
-                forces[i] = forces[i].subs(DoFs[j](t), qs[j])
-                momenta[i] = momenta[i].subs(dq_dts[j], q_dots[j])
-                momenta[i] = momenta[i].subs(DoFs[j](t), qs[j])
+        (forces_and_momenta, qs, q_dots) = Lagrangian.symbolize(forces + momenta, t, DoFs)
+        forces = forces_and_momenta[0:len(forces)]
+        momenta = forces_and_momenta[len(forces):]
 
-        # Generate system of equations to solve for velocities
+        # Generate system of equations to solve for velocities given momenta
+        p_qs = list(map(lambda DoF: DoF.momentum_symbol(), DoFs))
         velocity_eqs = []
 
         for p_q, momentum in zip(p_qs, momenta):
@@ -180,16 +218,19 @@ class LagrangianBody:
             """See LagrangianBody.T"""
             pass
 
-    def __init__(self, physics: LagrangianPhysics, t: sp.Symbol, *constraints: Constraint):
-        self._physics = physics
+    def __init__(self, t: sp.Symbol, physics: LagrangianPhysics, *constraints: Constraint):
         self._t = t
-        self._constraints = constraints
+        self._physics = physics
+        self._constraints = list(constraints)
+
+    @property
+    def t(self) -> sp.Symbol: return self._t
 
     def DoFs(self) -> List[DegreeOfFreedom]:
         """
         Returns a list of the coordinates that are degrees of freedom of this body
         """
-        return LagrangianBody.unconstrained_DoF(self._physics.DoF(), self._constraints)
+        return Lagrangian.unconstrained_DoFs(self._physics.DoFs(), self._constraints)
 
     @abstractmethod
     def U(self) -> sp.Expr:
@@ -207,7 +248,7 @@ class LagrangianBody:
         U = self._physics.U(t)
 
         for constraint in self._constraints:
-            constraint.apply_to(t, U)
+            U = constraint.apply_to(t, U)
         
         return U.simplify()
     
@@ -225,13 +266,13 @@ class LagrangianBody:
         T = self._physics.T(t)
 
         for constraint in self._constraints:
-            constraint.apply_to(t, T)
+            T = constraint.apply_to(t, T)
         
         return T.simplify()
     
     def lagrangian(self) -> Lagrangian:
         """Generates and returns the (simplified) Lagrangian for this body"""
-        return Lagrangian(sp.simplify(self.T(self._t).doit()) - sp.simplify(self.U(self._t).doit()), self._t, self.DoF())
+        return Lagrangian(sp.simplify(self.T().doit()) - sp.simplify(self.U().doit()), self._t, self.DoFs())
     
     def constrain(self, *constraints: Constraint):
         return LagrangianBody(self._physics, self._t, constraints)

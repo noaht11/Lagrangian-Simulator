@@ -3,9 +3,11 @@ import sys
 import sympy as sp
 from math import pi
 
-from physics.lagrangian import Lagrangian, Constraint
+from physics.lagrangian import Lagrangian, LagrangianBody, Constraint
 from physics.pendulum import CompoundPendulumPhysics, n_link_pendulum
-from physics.solvers import LagrangianNumericalSolver
+from physics.numericalize import LagrangianNumericalSolver
+
+sp.init_printing()
 
 def step(text: str):
     print(text, end=""); sys.stdout.flush()
@@ -17,19 +19,17 @@ if __name__ == "__main__":
     print("")
 
     step("Constructing Pendulum...")
-    # Construction
     pendulum_physics = CompoundPendulumPhysics(
             L = 5,
             m = 3,
             I = 6
         )
     (pendulum, t, x, y, thetas) = n_link_pendulum(2, pendulum_physics)
-    # Constraints
-    pendulum = pendulum.constrain(Constraint(y, sp.S.Zero))
+    body = LagrangianBody(t, pendulum, Constraint(y, sp.S.Zero))
     done()
 
     step("Calculating Lagrangian...")
-    L = pendulum.lagrangian(t)
+    L = body.lagrangian()
     done()
 
     step("Generating Symbolic ODE Equations...")

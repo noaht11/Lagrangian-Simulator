@@ -3,7 +3,9 @@ from abc import ABC, abstractmethod
 
 import sympy as sp
 
-from physics.lagrangian import Lagrangian, Constraint
+###################################################################################################################################################################################
+# NUMERICAL SOLVERS
+###################################################################################################################################################################################
 
 class NumericalSolver(ABC):
     """TODO"""
@@ -23,50 +25,70 @@ class NumericalSolver(ABC):
         """TODO"""
         pass
 
-class LagrangianNumericalSolver(NumericalSolver):
-    """TODO"""
+###################################################################################################################################################################################
+# TIME EVOLVERS
+###################################################################################################################################################################################
 
-    def from_ode_expr(odeExpr: Lagrangian.ODEExpressions):
-        """TODO"""
-        return LagrangianNumericalSolver(odeExpr.num_q, odeExpr.force_lambdas(), odeExpr.momentum_lambdas(), odeExpr.velocity_lambdas())
+class TimeEvolver(ABC):
+    """Abstract Base Class for implementing numerical methods to solve the time evolution"""
 
-    def __init__(self, num_q: int, forces: List[Callable], momenta: List[Callable], velocities: List[Callable]):
-        assert(num_q == len(forces))
-        assert(num_q == len(momenta))
-        assert(num_q == len(velocities))
+    def evolve(self, t: float, state: List[float], solver: NumericalSolver, dt: float) -> List[float]:
+        """Updates the state to it's new state at time t + dt according to the provided solver"""
+        # Convert the current state to y vector (at time t)
+        y_0 = solver.state_to_y(t, state)
 
-        self._num_q = num_q
-        self._forces = forces
-        self._momenta = momenta
-        self._velocities = velocities
+        # Solve the ODE
+        y_1 = self.solve_ode(t, y_0, solver.dy_dt, dt)
+
+        # Convert resulting y vector back to state (at time d + dt now)
+        state_1 = solver.y_to_state(t + dt, y_1)
+
+        # Return updated state
+        return state_1
     
-    def state_to_y(self, t: float, state: List[float]) -> List[float]:
-        """Implementation of superclass method"""
-        num_q = self._num_q
-        qs = state[0:num_q]
-        q_dots = state[num_q:]
+    # Solves the ODE defined by:
+    #
+    #   dy/dt = dy_dt(t, y)
+    # 
+    # with initial condition:
+    #
+    #   y(t_0) = y_0
+    #
+    # to find:
+    #
+    #   y(t) between t_0 and t_0 + dt
+    #
+    @abstractmethod
+    def solve_ode(self, t_0: float, y_0: List[float], dy_dt: Callable[[float, List[float]], List[float]], dt: float) -> List[float]:
+        pass
 
-        p_qs = list(map(lambda momentum: momentum(t, *qs, *q_dots), self._momenta))
+import numpy as np
+from scipy.integrate import odeint
 
-        return qs + p_qs
+# TimeEvolver implementation that uses scipy.integrate.odeint to solve ODEs
+class ODEINTTimeEvolver(TimeEvolver):
+    def solve_ode(self, t_0: float, y_0: List[float], dy_dt: Callable[[float, List[float]], List[float]], dt: float) -> List[float]:
+        return odeint(dy_dt, y_0, [t_0, t_0 + dt], tfirst = True)[1]
+
+###################################################################################################################################################################################
+# NUMERICAL BODY
+###################################################################################################################################################################################
+class NumericalBody:
+
+    def __init__(self, U: Callable[[float], float], T: Callable[[float], float]):
+        self._U = U
+        self._T = T
+
+    @property
+    def state(self) -> List[float]:
+        return self._state
     
-    def dy_dt(self, t: float, y: List[float]) -> List[float]:
-        """Implementation of superclass method"""
-        num_q = self._num_q
-        qs = y[0:num_q]
-        p_qs = y[num_q:]
-
-        q_dots = list(map(lambda velocity: velocity(t, *qs, *p_qs), self._velocities))
-        p_q_dots = list(map(lambda force: force(t, *qs, *q_dots), self._forces))
-
-        return q_dots + p_q_dots
-
-    def y_to_state(self, t: float, y: List[float]) -> List[float]:
-        """Implementation of superclass method"""
-        num_q = self._num_q
-        qs = y[0:num_q]
-        p_qs = y[num_q:]
-
-        q_dots = list(map(lambda velocity: velocity(t, *qs, *p_qs), self._velocities))
-
-        return qs + q_dots
+    @state.setter
+    def state(self, value: List[float]):
+        self._state = value
+    
+    def U(self, t: float) -> float:
+        return self._U(t)
+    
+    def T(self, t: float) -> float:
+        return self._T(t)
