@@ -388,6 +388,19 @@ class MultiPendulumArtist(Artist):
 # SOLVER CLASSES
 ###################################################################################################################################################################################
 
+def create_single_pendulum_artist(t: sp.Symbol, pivot: Tuple[sp.Expr, sp.Expr], endpoint: Tuple[sp.Expr, sp.Expr], DoFs: List[DegreeOfFreedom], constraints: List[Constraint]):
+    (x, y) = pivot
+    (endpoint_x, endpoint_y) = endpoint
+
+    exprs = [x, y, endpoint_x, endpoint_y]
+    exprs = list(map(lambda expr: Lagrangian.apply_constraints(t, expr, constraints), exprs))
+
+    (exprs, qs, q_dots) = Lagrangian.symbolize(exprs, t, DoFs)
+
+    exprs_lambdas = list(map(lambda expr: sp.lambdify([t] + qs + q_dots, expr), exprs))
+
+    return SinglePendulumArtist(*exprs_lambdas)
+
 class SinglePendulumSolver(Solver):
 
     def __init__(self, single_pendulum: SinglePendulum):
@@ -395,20 +408,13 @@ class SinglePendulumSolver(Solver):
         self._single_pendulum = single_pendulum
     
     def artist(self) -> SinglePendulumArtist:
-        (x, y) = self._single_pendulum.pivot()
-        (endpoint_x, endpoint_y) = self._single_pendulum.endpoint()
-
-        t = self._single_pendulum.t
-        DoFs = self._single_pendulum.DoFs()
-
-        exprs = [x, y, endpoint_x, endpoint_y]
-        exprs = list(map(lambda expr: Lagrangian.apply_constraints(t, expr, self._single_pendulum.constraints), exprs))
-
-        (exprs, qs, q_dots) = Lagrangian.symbolize(exprs, t, DoFs)
-
-        exprs_lambdas = list(map(lambda expr: sp.lambdify([t] + qs + q_dots, expr), exprs))
-
-        return SinglePendulumArtist(*exprs_lambdas)
+        return create_single_pendulum_artist(
+            self._single_pendulum.t,
+            self._single_pendulum.pivot(),
+            self._single_pendulum.endpoint(),
+            self._single_pendulum.DoFs(),
+            self._single_pendulum.constraints
+        )
 
 class MultiPendulumSolver(Solver):
 
@@ -416,10 +422,22 @@ class MultiPendulumSolver(Solver):
         super().__init__(multi_pendulum)
         self._multi_pendulum = multi_pendulum
     
-    def _create_artist(multi_pendulum_physics: MultiPendulumLagrangianPhysics) -> MultiPendulumArtist:
-        multi_pendulum_physics.this
+    def _create_artist(self, multi_pendulum_physics: MultiPendulumLagrangianPhysics) -> MultiPendulumArtist:
+        if (multi_pendulum_physics.next is not None):
+            next_artist = _create_artist(multi_pendulum_physics.next)
+        
+        t = self._multi_pendulum.t
+        single = multi_pendulum_physics.this
 
-        this: SinglePendulumLagrangianPhysics = multi_pendulum_physics.this
+        single_artist = create_single_pendulum_artist(
+            t,
+            single.pivot(t),
+            single.endpoint(t),
+            self._multi_pendulum.DoFs(),
+            self._multi_pendulum.constraints
+        )
+
+        return MultiPendulumArtist(single_artist, next_artist)
 
     def artist(self) -> MultiPendulumArtist:
         pass
