@@ -348,11 +348,11 @@ class SinglePendulumArtist(Artist):
         self._line, = axes.plot([], [], '-', lw=4)
         return self._line,
 
-    def draw(self, state: np.ndarray):
-        x = self._x(*state)
-        y = self._y(*state)
-        endpoint_x = self._endpoint_x(*state)
-        endpoint_y = self._endpoint_y(*state)
+    def draw(self, t: float, state: np.ndarray):
+        x = self._x(t, *state)
+        y = self._y(t, *state)
+        endpoint_x = self._endpoint_x(t, *state)
+        endpoint_y = self._endpoint_y(t, *state)
 
         x_data = [x, endpoint_x]
         y_data = [y, endpoint_y]
@@ -375,7 +375,7 @@ class MultiPendulumArtist(Artist):
 
         return this_mod,
 
-    def draw(self, state: np.ndarray):
+    def draw(self, t: float, state: np.ndarray):
         this_mod = self._this.draw(state)
         
         if (self._next is not None):
@@ -406,7 +406,7 @@ class SinglePendulumSolver(Solver):
 
         (exprs, qs, q_dots) = Lagrangian.symbolize(exprs, t, DoFs)
 
-        exprs_lambdas = list(map(lambda expr: sp.lambdify(qs + q_dots, expr), exprs))
+        exprs_lambdas = list(map(lambda expr: sp.lambdify([t] + qs + q_dots, expr), exprs))
 
         return SinglePendulumArtist(*exprs_lambdas)
 
