@@ -1,57 +1,15 @@
-from typing import List, Callable, Tuple
+from typing import List, Callable, Tuple, Iterable
 from abc import ABC, abstractmethod
 
 import sympy as sp
+import numpy as np
 
 from physics.lagrangian import Lagrangian, LagrangianBody
-from physics.numerical import NumericalODEs, TimeEvolver, ODEINTSolver, NumericalBody
+from physics.numerical import NumericalODEs, LagrangianNumericalODEs, TimeEvolver, ODEINTSolver, NumericalBody
 from physics.simulation import PhysicsSimulation
 
-class LagrangianNumericalODEs(NumericalODEs):
-    """TODO
-    TODO numpy vs array splatting???
-    """
-
-    def __init__(self, num_q: int, forces: List[Callable], momenta: List[Callable], velocities: List[Callable]):
-        assert(num_q == len(forces))
-        assert(num_q == len(momenta))
-        assert(num_q == len(velocities))
-
-        self._num_q = num_q
-        self._forces = forces
-        self._momenta = momenta
-        self._velocities = velocities
-    
-    def state_to_y(self, t: float, state: List[float]) -> List[float]:
-        """Implementation of superclass method"""
-        num_q = self._num_q
-        qs = list(state[0:num_q])
-        q_dots = list(state[num_q:])
-
-        p_qs = list(map(lambda momentum: momentum(t, *qs, *q_dots), self._momenta))
-
-        return qs + p_qs
-    
-    def dy_dt(self, t: float, y: List[float]) -> List[float]:
-        """Implementation of superclass method"""
-        num_q = self._num_q
-        qs = list(y[0:num_q])
-        p_qs = list(y[num_q:])
-
-        q_dots = list(map(lambda velocity: velocity(t, *qs, *p_qs), self._velocities))
-        p_q_dots = list(map(lambda force: force(t, *qs, *q_dots), self._forces))
-
-        return q_dots + p_q_dots
-
-    def y_to_state(self, t: float, y: List[float]) -> List[float]:
-        """Implementation of superclass method"""
-        num_q = self._num_q
-        qs = list(y[0:num_q])
-        p_qs = list(y[num_q:])
-
-        q_dots = list(map(lambda velocity: velocity(t, *qs, *p_qs), self._velocities))
-
-        return qs + q_dots
+def lambdify(args: Iterable[sp.Expr], expr: sp.Expr):
+    return sp.lambdify(args, expr, modules="numpy")
 
 class Solver:
 
@@ -67,19 +25,33 @@ class Solver:
 
         (exprs, qs, q_dots) = Lagrangian.symbolize([U_expr, T_expr], t, DoFs)
 
-        U_lambda = sp.lambdify([t] + qs + q_dots, exprs[0])
-        T_lambda = sp.lambdify([t] + qs + q_dots, exprs[1])
+        U_lambda = lambdify([t] + qs + q_dots, exprs[0])
+        T_lambda = lambdify([t] + qs + q_dots, exprs[1])
 
         return NumericalBody(U_lambda, T_lambda)
     
     def _time_evolver(self) -> TimeEvolver:
         ode_expr = self._lagrangian_body.lagrangian().solve()
-        numerical_odes = LagrangianNumericalODEs(ode_expr.num_q, ode_expr.force_lambdas(), ode_expr.momentum_lambdas(), ode_expr.velocity_lambdas())
+
+        force_lambdas    = [lambdify([ode_expr.t] + ode_expr.qs + ode_expr.q_dots, force_expr) for force_expr in ode_expr.force_exprs]
+        momentum_lambdas = [lambdify([ode_expr.t] + ode_expr.qs + ode_expr.q_dots, momentum_expr) for momentum_expr in ode_expr.momentum_exprs]
+        velocity_lambdas = [lambdify([ode_expr.t] + ode_expr.qs + ode_expr.p_qs, velocity_expr) for velocity_expr in ode_expr.velocity_exprs]
+
+        # def force_lambdas(self) -> List[Callable[..., float]]:
+        #     return list(map(lambda force_expr: sp.lambdify([self._t] + self._qs + self._q_dots, force_expr), self._force_exprs))
+        
+        # def momentum_lambdas(self) -> List[Callable[..., float]]:
+        #     return list(map(lambda momentum_expr: sp.lambdify([self._t] + self._qs + self._q_dots, momentum_expr), self._momentum_exprs))
+        
+        # def velocity_lambdas(self) -> List[Callable[..., float]]:
+        #     return list(map(lambda velocity_expr: sp.lambdify([self._t] + self._qs + self._p_qs, velocity_expr), self._velocity_exprs))
+
+        numerical_odes = LagrangianNumericalODEs(ode_expr.num_q, force_lambdas, momentum_lambdas, velocity_lambdas)
         time_evolver = TimeEvolver(numerical_odes, ODEINTSolver())
 
         return time_evolver
     
-    def simulate(self, init_state: List[float]) -> PhysicsSimulation:
+    def simulate(self, init_state: np.ndarray) -> PhysicsSimulation:
         body = self._numerical_body()
         time_evolver = self._time_evolver()
 

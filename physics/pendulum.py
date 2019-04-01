@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from math import pi
 
 import sympy as sp
+import numpy as np
 import scipy.constants
 
 from physics.lagrangian import Lagrangian, LagrangianBody, DegreeOfFreedom, Constraint
@@ -51,17 +52,17 @@ class SinglePendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
             `theta` : angle of the pendulum (as a symbolic function of time) with respect to the vertical through the pivot
         """
 
-        def __init__(self, x: DegreeOfFreedom, y: DegreeOfFreedom, theta: DegreeOfFreedom):
+        def __init__(self, x: sp.Function, y: sp.Function, theta: sp.Function):
             self._x = x
             self._y = y
             self._theta = theta
         
         @property
-        def x(self)     -> DegreeOfFreedom : return self._x
+        def x(self)     -> sp.Function : return self._x
         @property
-        def y(self)     -> DegreeOfFreedom : return self._y
+        def y(self)     -> sp.Function : return self._y
         @property
-        def theta(self) -> DegreeOfFreedom : return self._theta
+        def theta(self) -> sp.Function : return self._theta
 
     class PendulumPhysics(ABC):
         """Abstract base class for representing the physical properties and behavior of the pendulum
@@ -96,12 +97,16 @@ class SinglePendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
             """See `SinglePendulumLagrangianPhysics.T`"""
             pass
 
-    def __init__(self, coordinates: PendulumCoordinates, physics: PendulumPhysics):
+    def __init__(self, coordinates: PendulumCoordinates, physics: PendulumPhysics, DoFs: List[DegreeOfFreedom]):
         self._coordinates = coordinates
         self._physics = physics
+        self._DoFs = DoFs
     
     @property
     def coordinates(self) -> PendulumCoordinates : return self._coordinates
+    
+    def pivot(self, t: sp.Symbol) -> Tuple[sp.Expr, sp.Expr]:
+        return (self.coordinates.x(t), self.coordinates.y(t))
 
     def endpoint(self, t: sp.Symbol) -> Tuple[sp.Expr, sp.Expr]:
         """Generates symbolic expressions for the coordinates of the endpoint of the pendulum
@@ -127,9 +132,9 @@ class SinglePendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
         """
         return self._physics.COM(t, self.coordinates)
 
-    def DoFs(self) -> List[sp.Function]:
+    def DoFs(self) -> List[DegreeOfFreedom]:
         """Implementation of superclass method"""
-        return [self.coordinates.x, self.coordinates.y, self.coordinates.theta]
+        return self._DoFs
 
     def U(self, t: sp.Symbol) -> sp.Expr:
         """Implementation of superclass method"""
@@ -144,15 +149,13 @@ class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
     TODO mutable or not mutable (_next)?
     """
 
-    def __init__(self, this: SinglePendulumLagrangianPhysics, constraints: List[Constraint] = []):
+    def __init__(self, this: SinglePendulumLagrangianPhysics):
         self._this = this
-        self._constraints = constraints
-
         self._next: MultiPendulumLagrangianPhysics = None
 
     @property
     def this(self) -> SinglePendulumLagrangianPhysics: return self._this
-
+    
     @property
     def next(self) -> "MultiPendulumLagrangianPhysics": return self._next
         
@@ -163,15 +166,9 @@ class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
         else:
             return self.this.endpoint(t)
     
-    def _this_DoFs(self) -> List[DegreeOfFreedom]:
-        """Returns a list of only those coordinates that are unconstrained degrees of freedom"""
-        DoFs = self._this.DoFs()
-        DoFs = Lagrangian.unconstrained_DoFs(DoFs, self._constraints)
-        return DoFs
-    
     def DoFs(self) -> List[DegreeOfFreedom]:
         """Implementation of superclass method"""
-        DoFs = self._this_DoFs() # Only include unconstrained degrees of freedom
+        DoFs = self.this.DoFs()
         if (self.next is not None):
             DoFs += self.next.DoFs()
         return DoFs
@@ -185,9 +182,6 @@ class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
         if (self.next is not None):
             U += self.next.U(t)
 
-        # Apply constraints    
-        U = Lagrangian.apply_constraints(t, U, self._constraints)
-
         return U
     
     def T(self, t: sp.Symbol) -> sp.Expr:
@@ -198,13 +192,10 @@ class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
         # Kinetic energy of next
         if (self.next is not None):
             T += self.next.T(t)
-        
-        # Apply constraints
-        T = Lagrangian.apply_constraints(t, T, self._constraints)
 
         return T
     
-    def attach_pendulum(self, t: sp.Symbol, pendulum: SinglePendulumLagrangianPhysics) -> "MultiPendulumLagrangianPhysics":
+    def attach_pendulum(self, t: sp.Symbol, theta: DegreeOfFreedom, physics: SinglePendulumLagrangianPhysics.PendulumPhysics) -> "MultiPendulumLagrangianPhysics":
         """Constructs another MultiPendulumLagrangianPhysics attached to the endpoint of this MultiPendulumLagrangianPhysics
         
         Returns:
@@ -212,17 +203,17 @@ class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
         """
         # Attach to the last pendulum in the chain
         if (self.next is not None):
-            return self.next.attach_pendulum(t, pendulum)
+            return self.next.attach_pendulum(t, physics)
 
         # Get the endpoint of this pendulum
-        x_end, y_end = self.endpoint(t)
+        x_end, y_end = self.this.endpoint(t)
+        coordinates = SinglePendulumLagrangianPhysics.PendulumCoordinates(sp.Lambda(t, x_end), sp.Lambda(t, y_end), theta)
 
-        # Setup the constraints
-        x_constraint = Constraint(pendulum.coordinates.x, x_end)
-        y_constraint = Constraint(pendulum.coordinates.y, y_end)
+        # Create Single Pendulum
+        pendulum = SinglePendulumLagrangianPhysics(coordinates, physics, [theta])
 
         # Construct the new MultiPendulumLagrangianPhysics to hold the SinglePendulumLagrangianPhysics
-        pendulum_new = MultiPendulumLagrangianPhysics(pendulum, [x_constraint, y_constraint])
+        pendulum_new = MultiPendulumLagrangianPhysics(pendulum)
 
         # Attach it to the current pendulum
         self._next = pendulum_new
@@ -338,10 +329,7 @@ class MultiPendulum(LagrangianBody):
         self._pendulum_physics = physics
     
     @property
-    def this(self) -> SinglePendulumLagrangianPhysics: return self._pendulum_physics.this
-    
-    @property
-    def next(self) -> MultiPendulumLagrangianPhysics: return self._pendulum_physics.next
+    def physics(self) -> MultiPendulumLagrangianPhysics: return self._pendulum_physics
 
 
 ###################################################################################################################################################################################
@@ -360,7 +348,7 @@ class SinglePendulumArtist(Artist):
         self._line, = axes.plot([], [], '-', lw=4)
         return self._line,
 
-    def draw(self, state: List[float]):
+    def draw(self, state: np.ndarray):
         x = self._x(*state)
         y = self._y(*state)
         endpoint_x = self._endpoint_x(*state)
@@ -387,7 +375,7 @@ class MultiPendulumArtist(Artist):
 
         return this_mod,
 
-    def draw(self, state: List[float]):
+    def draw(self, state: np.ndarray):
         this_mod = self._this.draw(state)
         
         if (self._next is not None):
@@ -428,6 +416,11 @@ class MultiPendulumSolver(Solver):
         super().__init__(multi_pendulum)
         self._multi_pendulum = multi_pendulum
     
+    def _create_artist(multi_pendulum_physics: MultiPendulumLagrangianPhysics) -> MultiPendulumArtist:
+        multi_pendulum_physics.this
+
+        this: SinglePendulumLagrangianPhysics = multi_pendulum_physics.this
+
     def artist(self) -> MultiPendulumArtist:
         pass
 
@@ -439,21 +432,18 @@ def n_link_pendulum(n: int, physics: SinglePendulumLagrangianPhysics.PendulumPhy
     """
     TODO
     """
+    if (n < 1):
+        raise AssertionError("n must be at least 1")
+
     t = sp.Symbol("t")
 
     root_pendulum = None
     last_pendulum = None
 
-    xs = []
-    ys = []
     thetas = []
     for i in range(n):
-        x = DegreeOfFreedom("x_" + str(i + 1)) # 1-index the xs
-        y = DegreeOfFreedom("y_" + str(i + 1)) # 1-index the yx
         theta = DegreeOfFreedom("theta_" + str(i + 1)) # 1-index the thetas
 
-        xs.append(x)
-        ys.append(y)
         thetas.append(theta)
 
         single_pendulum = SinglePendulumLagrangianPhysics(SinglePendulumLagrangianPhysics.PendulumCoordinates(x, y, theta), physics)

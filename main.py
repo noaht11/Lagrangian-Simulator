@@ -32,12 +32,12 @@ if __name__ == "__main__":
 
     coordinates = SinglePendulumLagrangianPhysics.PendulumCoordinates(x, y, theta)
 
-    pendulum_lagrangian_physics = SinglePendulumLagrangianPhysics(coordinates, single_pendulum_physics)
-    # (pendulum, t, x, y, thetas) = n_link_pendulum(2, pendulum_physics)
+    pendulum_lagrangian_physics = SinglePendulumLagrangianPhysics(coordinates, single_pendulum_physics, [x, y, theta])
+    # (pendulum, t, x, y, thetas) = n_link_pendulum(2, single_pendulum_physics)
     done()
 
     step("Constructing Lagrangian Body...")
-    pendulum = SinglePendulum(t, pendulum_lagrangian_physics, Constraint(x, sp.S.Zero), Constraint(y, sp.S.Zero))
+    pendulum = SinglePendulum(t, pendulum_lagrangian_physics, Constraint(x, sp.S.Zero), Constraint(y, 5.0/20.0*sp.cos(1000*t)))
     done()
 
     solver = SinglePendulumSolver(pendulum)

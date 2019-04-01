@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Callable
 
+import numpy as np
+
 from physics.numerical import NumericalBody, TimeEvolver
 
 ###################################################################################################################################################################################
@@ -26,7 +28,7 @@ from physics.numerical import NumericalBody, TimeEvolver
 
 # Class that manages the evolution of the double pendulum over time
 class PhysicsSimulation:
-    def __init__(self, body: NumericalBody, time_evolver: TimeEvolver, init_state: List[float]):#, var_trackers: List[float] = []):
+    def __init__(self, body: NumericalBody, time_evolver: TimeEvolver, init_state: np.ndarray):#, var_trackers: List[float] = []):
         self._body = body
         self._time_evolver = time_evolver
 

@@ -77,17 +77,22 @@ class Lagrangian:
             self._velocity_exprs = velocity_exprs
 
         @property
-        def num_q(self) -> int:
-            return len(self._qs)
+        def t(self) -> sp.Symbol: return self._t
 
-        def force_lambdas(self) -> List[Callable[..., float]]:
-            return list(map(lambda force_expr: sp.lambdify([self._t] + self._qs + self._q_dots, force_expr), self._force_exprs))
-        
-        def momentum_lambdas(self) -> List[Callable[..., float]]:
-            return list(map(lambda momentum_expr: sp.lambdify([self._t] + self._qs + self._q_dots, momentum_expr), self._momentum_exprs))
-        
-        def velocity_lambdas(self) -> List[Callable[..., float]]:
-            return list(map(lambda velocity_expr: sp.lambdify([self._t] + self._qs + self._p_qs, velocity_expr), self._velocity_exprs))
+        @property
+        def num_q(self) -> int: return len(self._qs)
+        @property
+        def qs(self) -> List[sp.Symbol]: return self._qs
+        @property
+        def p_qs(self) -> List[sp.Symbol]: return self._p_qs
+        @property
+        def q_dots(self) -> List[sp.Symbol]: return self._q_dots
+        @property
+        def force_exprs(self) -> List[sp.Symbol]: return self._force_exprs
+        @property
+        def momentum_exprs(self) -> List[sp.Symbol]: return self._momentum_exprs
+        @property
+        def velocity_exprs(self) -> List[sp.Symbol]: return self._velocity_exprs
 
     @staticmethod
     def same_coordinate(a: sp.Function, b: sp.Function) -> bool:

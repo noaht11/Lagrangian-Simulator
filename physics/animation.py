@@ -15,7 +15,7 @@ class Artist(ABC):
         pass
 
     @abstractmethod
-    def draw(self, state: List[float]):
+    def draw(self, state: np.ndarray):
         pass
 
 class PhysicsAnimation:
@@ -132,7 +132,7 @@ class PhysicsAnimation:
 
         # Required for matplotlib to update
         # return self.line_main, self.time_text_main, self.energy_text, self.line_var
-        return tuple([*artist_mod, self.time_text_main, self.energy_text])
+        return [*artist_mod, self.time_text_main, self.energy_text]
 
     # Runs and displays an animation of the pendulum
     #
