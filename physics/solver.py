@@ -4,14 +4,14 @@ from abc import ABC, abstractmethod
 import sympy as sp
 
 from physics.lagrangian import Lagrangian, LagrangianBody
-from physics.solvers import NumericalSolver, NumericalBody
+from physics.numerical import NumericalODEs, TimeEvolver, ODEINTSolver, NumericalBody
 
-class LagrangianNumericalSolver(NumericalSolver):
+class LagrangianNumericalODEs(NumericalODEs):
     """TODO"""
 
     def from_ode_expr(ode_expr: Lagrangian.ODEExpressions):
         """TODO"""
-        return LagrangianNumericalSolver(ode_expr.num_q, ode_expr.force_lambdas(), ode_expr.momentum_lambdas(), ode_expr.velocity_lambdas())
+        return LagrangianNumericalODEs(ode_expr.num_q, ode_expr.force_lambdas(), ode_expr.momentum_lambdas(), ode_expr.velocity_lambdas())
 
     def __init__(self, num_q: int, forces: List[Callable], momenta: List[Callable], velocities: List[Callable]):
         assert(num_q == len(forces))
@@ -54,27 +54,28 @@ class LagrangianNumericalSolver(NumericalSolver):
 
         return qs + q_dots
 
-class Numericalizer(ABC):
+class Solver:
 
-    @property
-    @abstractmethod
-    def lagrangian_body(self) -> LagrangianBody:
-        pass
-    
-    def numerical_solver(self) -> NumericalSolver:
-        ode_expr = self.lagrangian_body.lagrangian().solve()
-        return LagrangianNumericalSolver.from_ode_expr(ode_expr)
+    def __init__(self, lagrangian_body: LagrangianBody):
+        self._lagrangian_body = lagrangian_body
     
     def numerical_body(self) -> NumericalBody:
-        t = self.lagrangian_body.t
-        DoFs = self.lagrangian_body.DoFs
+        t = self._lagrangian_body.t
+        DoFs = self._lagrangian_body.DoFs()
 
-        U_expr = self.lagrangian_body.U()
-        T_expr = self.lagrangian_body.T()
+        U_expr = self._lagrangian_body.U()
+        T_expr = self._lagrangian_body.T()
 
         (exprs, qs, q_dots) = Lagrangian.symbolize([U_expr, T_expr], t, DoFs)
 
-        U_lambda = sp.lambdify(qs + q_dots, exprs[0])
-        T_lambda = sp.lambdify(qs + q_dots, exprs[1])
+        U_lambda = sp.lambdify([t] + qs + q_dots, exprs[0])
+        T_lambda = sp.lambdify([t] + qs + q_dots, exprs[1])
 
         return NumericalBody(U_lambda, T_lambda)
+    
+    def time_evolver(self) -> TimeEvolver:
+        ode_expr = self._lagrangian_body.lagrangian().solve()
+        numerical_odes = LagrangianNumericalODEs.from_ode_expr(ode_expr)
+        time_evolver = TimeEvolver(numerical_odes, ODEINTSolver())
+
+        return time_evolver

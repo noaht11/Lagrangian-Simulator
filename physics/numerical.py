@@ -4,10 +4,10 @@ from abc import ABC, abstractmethod
 import sympy as sp
 
 ###################################################################################################################################################################################
-# NUMERICAL SOLVERS
+# ODE SOLVER CLASSES
 ###################################################################################################################################################################################
 
-class NumericalSolver(ABC):
+class NumericalODEs(ABC):
     """TODO"""
 
     @abstractmethod
@@ -25,27 +25,7 @@ class NumericalSolver(ABC):
         """TODO"""
         pass
 
-###################################################################################################################################################################################
-# TIME EVOLVERS
-###################################################################################################################################################################################
-
-class TimeEvolver(ABC):
-    """Abstract Base Class for implementing numerical methods to solve the time evolution"""
-
-    def evolve(self, t: float, state: List[float], solver: NumericalSolver, dt: float) -> List[float]:
-        """Updates the state to it's new state at time t + dt according to the provided solver"""
-        # Convert the current state to y vector (at time t)
-        y_0 = solver.state_to_y(t, state)
-
-        # Solve the ODE
-        y_1 = self.solve_ode(t, y_0, solver.dy_dt, dt)
-
-        # Convert resulting y vector back to state (at time d + dt now)
-        state_1 = solver.y_to_state(t + dt, y_1)
-
-        # Return updated state
-        return state_1
-    
+class ODESolver(ABC):
     # Solves the ODE defined by:
     #
     #   dy/dt = dy_dt(t, y)
@@ -65,10 +45,36 @@ class TimeEvolver(ABC):
 import numpy as np
 from scipy.integrate import odeint
 
-# TimeEvolver implementation that uses scipy.integrate.odeint to solve ODEs
-class ODEINTTimeEvolver(TimeEvolver):
+class ODEINTSolver(ODESolver):
+    """ODESolver implementation that uses scipy.integrate.odeint to solve ODEs"""
+
     def solve_ode(self, t_0: float, y_0: List[float], dy_dt: Callable[[float, List[float]], List[float]], dt: float) -> List[float]:
         return odeint(dy_dt, y_0, [t_0, t_0 + dt], tfirst = True)[1]
+
+###################################################################################################################################################################################
+# TIME EVOLVER
+###################################################################################################################################################################################
+
+class TimeEvolver:
+    """Class for implementing numerical methods to solve the time evolution"""
+    
+    def __init__(self, ODEs: NumericalODEs, solver: ODESolver):
+        self._ODEs = ODEs
+        self._solver = solver
+
+    def evolve(self, t: float, state: List[float], dt: float) -> List[float]:
+        """Updates the state to it's new state at time t + dt"""
+        # Convert the current state to y vector (at time t)
+        y_0 = self._ODEs.state_to_y(t, state)
+
+        # Solve the ODE
+        y_1 = self._solver.solve_ode(t, y_0, self._ODEs.dy_dt, dt)
+
+        # Convert resulting y vector back to state (at time d + dt now)
+        state_1 = self._ODEs.y_to_state(t + dt, y_1)
+
+        # Return updated state
+        return state_1
 
 ###################################################################################################################################################################################
 # NUMERICAL BODY

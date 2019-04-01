@@ -6,7 +6,6 @@ import sympy as sp
 import scipy.constants
 
 from physics.lagrangian import Lagrangian, LagrangianBody, DegreeOfFreedom, Constraint
-from physics.numericalize import Numericalizer
 from physics.animation import Artist
 
 ###################################################################################################################################################################################
@@ -325,16 +324,6 @@ class SinglePendulumArtist(Artist):
 
     def __init__(self, endpoint: Callable[[float, float, float], Tuple[float, float]]):
         pass
-
-###################################################################################################################################################################################
-# NUMERICALIZER CLASSES
-###################################################################################################################################################################################
-
-class PendulumNumericalizer(Numericalizer):
-
-    def __init__(self, pendulum: MultiPendulumLagrangianPhysics, endpoint: Callable[[float, float, float], Tuple[float, float]]):
-        self._pendulum = pendulum
-        self._endpoint = endpoint
 
 ###################################################################################################################################################################################
 # BUILDERS

@@ -1,12 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Callable
 
-from physics.solvers import NumericalSolver
-
-###################################################################################################################################################################################
-# ABSTRACT BASE CLASSES
-###################################################################################################################################################################################
-
+from physics.solvers import NumericalSolver, NumericalBody
 
 ###################################################################################################################################################################################
 # SIMULATION
@@ -31,7 +26,7 @@ from physics.solvers import NumericalSolver
 
 # Class that manages the evolution of the double pendulum over time
 class Simulation:
-    def __init__(self, body: SimulationBody, solver: NumericalSolver, time_evolver: TimeEvolver):#, var_trackers: List[float] = []):
+    def __init__(self, body: NumericalBody, solver: NumericalSolver, time_evolver: TimeEvolver):#, var_trackers: List[float] = []):
         self._body = body
         self._solver = solver
         self._time_evolver = time_evolver
@@ -43,7 +38,7 @@ class Simulation:
         # self.__var_trackers = var_trackers
 
     @property
-    def body(self) -> SimulationBody: return self._body
+    def body(self) -> NumericalBody: return self._body
     @property
     def elapsed_time(self) -> float: return self._elapsed_time
 
