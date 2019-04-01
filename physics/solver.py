@@ -5,6 +5,7 @@ import sympy as sp
 
 from physics.lagrangian import Lagrangian, LagrangianBody
 from physics.numerical import NumericalODEs, TimeEvolver, ODEINTSolver, NumericalBody
+from physics.simulation import PhysicsSimulation
 
 class LagrangianNumericalODEs(NumericalODEs):
     """TODO"""
@@ -59,7 +60,7 @@ class Solver:
     def __init__(self, lagrangian_body: LagrangianBody):
         self._lagrangian_body = lagrangian_body
     
-    def numerical_body(self) -> NumericalBody:
+    def _numerical_body(self) -> NumericalBody:
         t = self._lagrangian_body.t
         DoFs = self._lagrangian_body.DoFs()
 
@@ -73,9 +74,15 @@ class Solver:
 
         return NumericalBody(U_lambda, T_lambda)
     
-    def time_evolver(self) -> TimeEvolver:
+    def _time_evolver(self) -> TimeEvolver:
         ode_expr = self._lagrangian_body.lagrangian().solve()
         numerical_odes = LagrangianNumericalODEs.from_ode_expr(ode_expr)
         time_evolver = TimeEvolver(numerical_odes, ODEINTSolver())
 
         return time_evolver
+    
+    def simulate(self, init_state: List[float]) -> PhysicsSimulation:
+        body = self._numerical_body()
+        time_evolver = self._time_evolver()
+
+        return PhysicsSimulation(body, time_evolver, init_state)

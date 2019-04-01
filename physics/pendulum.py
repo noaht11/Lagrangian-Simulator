@@ -7,6 +7,7 @@ import scipy.constants
 
 from physics.lagrangian import Lagrangian, LagrangianBody, DegreeOfFreedom, Constraint
 from physics.animation import Artist
+from physics.solver import Solver
 
 ###################################################################################################################################################################################
 # UTILITY FUNCTIONS
@@ -317,16 +318,80 @@ class CompoundPendulumPhysics(SinglePendulumLagrangianPhysics.PendulumPhysics):
         return T_translation + T_rotation
 
 ###################################################################################################################################################################################
+# LAGRANGIAN BODY CLASSES
+###################################################################################################################################################################################
+
+class SinglePendulum(LagrangianBody):
+
+    def __init__(self, t: sp.Symbol, physics: SinglePendulumLagrangianPhysics, *constraints: Constraint):
+        super().__init__(t, physics, *constraints)
+    
+        self._pendulum_physics = physics
+    
+    def pivot(self) -> Tuple[sp.Expr, sp.Expr]:
+        t = self.t
+        x = self._pendulum_physics.coordinates.x(t)
+        y = self._pendulum_physics.coordinates.y(t)
+        return (x, y)
+    
+    def endpoint(self) -> Tuple[sp.Expr, sp.Expr]:
+        t = self.t
+        endpoint = self._pendulum_physics.endpoint(t)
+        return endpoint
+
+###################################################################################################################################################################################
 # ANIMATION CLASSES
 ###################################################################################################################################################################################
 
 class SinglePendulumArtist(Artist):
 
-    def __init__(self, endpoint: Callable[[float, float, float], Tuple[float, float]]):
-        pass
+    def __init__(self, x: Callable[..., float], y: Callable[..., float], endpoint_x: Callable[..., float], endpoint_y: Callable[..., float]):
+        self._x = x
+        self._y = y
+        self._endpoint_x = endpoint_x
+        self._endpoint_y = endpoint_y
+    
+    def reset(self, axes):
+        self._line, = axes.plot([], [], '-', lw=4)
+        return self._line
+
+    def draw(self, state: List[float]):
+        x = self._x(*state)
+        y = self._y(*state)
+        endpoint_x = self._endpoint_x(*state)
+        endpoint_y = self._endpoint_y(*state)
+
+        x_data = [x, endpoint_x]
+        y_data = [y, endpoint_y]
+        self._line.set_data(x_data, y_data)
+
+        return self._line
 
 ###################################################################################################################################################################################
-# BUILDERS
+# SOLVER CLASSES
+###################################################################################################################################################################################
+
+class SinglePendulumSolver(Solver):
+
+    def __init__(self, single_pendulum: SinglePendulum):
+        super().__init__(single_pendulum)
+        self._single_pendulum = single_pendulum
+    
+    def artist(self) -> SinglePendulumArtist:
+        (x, y) = self._single_pendulum.pivot()
+        (endpoint_x, endpoint_y) = self._single_pendulum.endpoint()
+
+        t = self._single_pendulum.t
+        DoFs = self._single_pendulum.DoFs()
+
+        (exprs, qs, q_dots) = Lagrangian.symbolize([x, y, endpoint_x, endpoint_y], t, DoFs)
+
+        exprs_lambdas = list(map(lambda expr: sp.lambdify(qs + q_dots, expr), exprs))
+
+        return SinglePendulumArtist(*exprs_lambdas)
+
+###################################################################################################################################################################################
+# HELPERS
 ###################################################################################################################################################################################
 
 def n_link_pendulum(n: int, physics: SinglePendulumLagrangianPhysics.PendulumPhysics) -> Tuple[MultiPendulumLagrangianPhysics, sp.Symbol, DegreeOfFreedom, DegreeOfFreedom, List[DegreeOfFreedom]]:

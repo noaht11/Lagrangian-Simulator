@@ -1,1 +1,1 @@
-__all__ = ["lagrangian", "solvers", "simulation", "animation", "pendulum"]
+__all__ = ["lagrangian", "numerical", "solver", "simulation", "animation", "pendulum"]

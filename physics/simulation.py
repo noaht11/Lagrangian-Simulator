@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Callable
 
-from physics.solvers import NumericalSolver, NumericalBody
+from physics.numerical import NumericalBody, TimeEvolver
 
 ###################################################################################################################################################################################
 # SIMULATION
@@ -25,13 +25,13 @@ from physics.solvers import NumericalSolver, NumericalBody
 
 
 # Class that manages the evolution of the double pendulum over time
-class Simulation:
-    def __init__(self, body: NumericalBody, solver: NumericalSolver, time_evolver: TimeEvolver):#, var_trackers: List[float] = []):
+class PhysicsSimulation:
+    def __init__(self, body: NumericalBody, time_evolver: TimeEvolver, init_state: List[float]):#, var_trackers: List[float] = []):
         self._body = body
-        self._solver = solver
         self._time_evolver = time_evolver
 
-        self._init_state = self._body.state
+        self._init_state = init_state
+        self._body.state = init_state
         self._elapsed_time = 0
 
         # self.__t_tracker = VariableTracker(0, lambda t, state, prop, behavior: t)
@@ -56,13 +56,13 @@ class Simulation:
 
     # Resets the pendulum to its initial state and returns to time 0
     def reset(self):
-        self._body.state = self.init_state
+        self._body.state = self._init_state
         self._elapsed_time = 0
 
     # Progresses the simulation through a time step, dt
     def step(self, dt: float):
         # Calculate next state
-        self._time_evolver.evolve(self.elapsed_time, self.body.state, self._solver, dt)
+        self._time_evolver.evolve(self.elapsed_time, self.body.state, dt)
         # Update elapsed time
         self._elapsed_time += dt
 

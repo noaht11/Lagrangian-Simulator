@@ -3,9 +3,9 @@ import sys
 import sympy as sp
 from math import pi
 
-from physics.lagrangian import LagrangianBody, Constraint
-from physics.pendulum import CompoundPendulumPhysics, n_link_pendulum
-from physics.solver import Solver
+from physics.lagrangian import LagrangianBody, DegreeOfFreedom, Constraint
+from physics.pendulum import SinglePendulum, SinglePendulumLagrangianPhysics, SinglePendulumArtist, SinglePendulumSolver, CompoundPendulumPhysics
+from physics.animation import PhysicsAnimation
 
 sp.init_printing()
 
@@ -19,27 +19,43 @@ if __name__ == "__main__":
     print("")
 
     step("Defining Pendulum...")
-    pendulum_physics = CompoundPendulumPhysics(
+    single_pendulum_physics = CompoundPendulumPhysics(
             L = 5,
             m = 3,
             I = 6
         )
-    (pendulum, t, x, y, thetas) = n_link_pendulum(2, pendulum_physics)
+        
+    t = sp.Symbol("t")
+    x = DegreeOfFreedom("x")
+    y = DegreeOfFreedom("y")
+    theta = DegreeOfFreedom("theta")
+
+    coordinates = SinglePendulumLagrangianPhysics.PendulumCoordinates(x, y, theta)
+
+    pendulum_lagrangian_physics = SinglePendulumLagrangianPhysics(coordinates, single_pendulum_physics)
+    # (pendulum, t, x, y, thetas) = n_link_pendulum(2, pendulum_physics)
     done()
 
     step("Constructing Lagrangian Body...")
-    lagrangian_body = LagrangianBody(t, pendulum, Constraint(y, sp.S.Zero))
+    pendulum = SinglePendulum(t, pendulum_lagrangian_physics, Constraint(x, sp.S.Zero), Constraint(y, sp.S.Zero))
     done()
 
-    solver = Solver(lagrangian_body)
+    solver = SinglePendulumSolver(pendulum)
     
-    step("Converting to Numerical Body...")
-    numerical_body = solver.numerical_body()
+    step("Generating Simulation...")
+    simulation = solver.simulate([0, 0, pi/4, 0, 0, 0])
     done()
 
-    step("Solving for Time Evolution...")
-    time_evolver = solver.time_evolver()
+    step("Generating Artist...")
+    artist = solver.artist()
     done()
+
+    step("Generating Animation...")
+    animation = PhysicsAnimation(simulation, artist)
+    done()
+
+    animation.init()
+    animation.run(1/50, 1/50, 10000)
 
     # step("Calculating Lagrangian...")
     # L = body.lagrangian()
@@ -53,14 +69,14 @@ if __name__ == "__main__":
     # solver = LagrangianNumericalSolver.from_ode_expr(odeExpressions)
     # done()
 
-    state = [
-        0,
-        pi/2,
-        pi/4,
-        0,
-        2,
-        3
-    ]
+    # state = [
+    #     0,
+    #     pi/2,
+    #     pi/4,
+    #     0,
+    #     2,
+    #     3
+    # ]
 
     # print(solver.state_to_y(0, state))
 
