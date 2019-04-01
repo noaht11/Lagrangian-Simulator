@@ -94,7 +94,7 @@ class NumericalBody:
         self._state = value
     
     def U(self, t: float) -> float:
-        return self._U(t)
+        return self._U(t, *(self._state))
     
     def T(self, t: float) -> float:
-        return self._T(t)
+        return self._T(t, *(self._state))

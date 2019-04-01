@@ -41,7 +41,7 @@ class Constraint:
     def expression(self) -> sp.Expr: return self._expression
 
     def __str__(self):
-        # TODO also print expression
+        # TODO also include expression
         return str(self._coordinate)
 
     def apply_to(self, t: sp.Symbol, E: sp.Expr) -> sp.Expr:
@@ -135,10 +135,6 @@ class Lagrangian:
     def __str__(self):
         return str(self.L)
     
-    def print(self):
-        """Pretty prints the symbolic expression for this Lagrangian"""
-        sp.pprint(self.L)
-    
     def forces_and_momenta(self) -> Tuple[List[sp.Expr], List[sp.Expr]]:
         """Calculates the generalized forces and momenta for this Lagrangian for each of the provided degrees of freedom
 
@@ -225,6 +221,9 @@ class LagrangianBody:
 
     @property
     def t(self) -> sp.Symbol: return self._t
+    
+    @property
+    def constraints(self) -> List[Constraint]: return self._constraints
 
     def DoFs(self) -> List[DegreeOfFreedom]:
         """
@@ -250,7 +249,7 @@ class LagrangianBody:
         for constraint in self._constraints:
             U = constraint.apply_to(t, U)
         
-        return U.simplify()
+        return U.doit().simplify()
     
     @abstractmethod
     def T(self) -> sp.Expr:
@@ -268,11 +267,11 @@ class LagrangianBody:
         for constraint in self._constraints:
             T = constraint.apply_to(t, T)
         
-        return T.simplify()
+        return T.doit().simplify()
     
     def lagrangian(self) -> Lagrangian:
         """Generates and returns the (simplified) Lagrangian for this body"""
-        return Lagrangian(sp.simplify(self.T().doit()) - sp.simplify(self.U().doit()), self._t, self.DoFs())
+        return Lagrangian(self.T() - self.U(), self._t, self.DoFs())
     
     def constrain(self, *constraints: Constraint):
         return LagrangianBody(self._physics, self._t, constraints)

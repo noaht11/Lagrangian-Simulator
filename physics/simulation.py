@@ -62,7 +62,8 @@ class PhysicsSimulation:
     # Progresses the simulation through a time step, dt
     def step(self, dt: float):
         # Calculate next state
-        self._time_evolver.evolve(self.elapsed_time, self.body.state, dt)
+        next_state = self._time_evolver.evolve(self.elapsed_time, self.body.state, dt)
+        self._body.state = next_state
         # Update elapsed time
         self._elapsed_time += dt
 

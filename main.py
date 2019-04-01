@@ -43,7 +43,7 @@ if __name__ == "__main__":
     solver = SinglePendulumSolver(pendulum)
     
     step("Generating Simulation...")
-    simulation = solver.simulate([0, 0, pi/4, 0, 0, 0])
+    simulation = solver.simulate([pi/4, 0])
     done()
 
     step("Generating Artist...")

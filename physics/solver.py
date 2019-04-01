@@ -8,11 +8,9 @@ from physics.numerical import NumericalODEs, TimeEvolver, ODEINTSolver, Numerica
 from physics.simulation import PhysicsSimulation
 
 class LagrangianNumericalODEs(NumericalODEs):
-    """TODO"""
-
-    def from_ode_expr(ode_expr: Lagrangian.ODEExpressions):
-        """TODO"""
-        return LagrangianNumericalODEs(ode_expr.num_q, ode_expr.force_lambdas(), ode_expr.momentum_lambdas(), ode_expr.velocity_lambdas())
+    """TODO
+    TODO numpy vs array splatting???
+    """
 
     def __init__(self, num_q: int, forces: List[Callable], momenta: List[Callable], velocities: List[Callable]):
         assert(num_q == len(forces))
@@ -27,8 +25,8 @@ class LagrangianNumericalODEs(NumericalODEs):
     def state_to_y(self, t: float, state: List[float]) -> List[float]:
         """Implementation of superclass method"""
         num_q = self._num_q
-        qs = state[0:num_q]
-        q_dots = state[num_q:]
+        qs = list(state[0:num_q])
+        q_dots = list(state[num_q:])
 
         p_qs = list(map(lambda momentum: momentum(t, *qs, *q_dots), self._momenta))
 
@@ -37,8 +35,8 @@ class LagrangianNumericalODEs(NumericalODEs):
     def dy_dt(self, t: float, y: List[float]) -> List[float]:
         """Implementation of superclass method"""
         num_q = self._num_q
-        qs = y[0:num_q]
-        p_qs = y[num_q:]
+        qs = list(y[0:num_q])
+        p_qs = list(y[num_q:])
 
         q_dots = list(map(lambda velocity: velocity(t, *qs, *p_qs), self._velocities))
         p_q_dots = list(map(lambda force: force(t, *qs, *q_dots), self._forces))
@@ -48,8 +46,8 @@ class LagrangianNumericalODEs(NumericalODEs):
     def y_to_state(self, t: float, y: List[float]) -> List[float]:
         """Implementation of superclass method"""
         num_q = self._num_q
-        qs = y[0:num_q]
-        p_qs = y[num_q:]
+        qs = list(y[0:num_q])
+        p_qs = list(y[num_q:])
 
         q_dots = list(map(lambda velocity: velocity(t, *qs, *p_qs), self._velocities))
 
@@ -76,7 +74,7 @@ class Solver:
     
     def _time_evolver(self) -> TimeEvolver:
         ode_expr = self._lagrangian_body.lagrangian().solve()
-        numerical_odes = LagrangianNumericalODEs.from_ode_expr(ode_expr)
+        numerical_odes = LagrangianNumericalODEs(ode_expr.num_q, ode_expr.force_lambdas(), ode_expr.momentum_lambdas(), ode_expr.velocity_lambdas())
         time_evolver = TimeEvolver(numerical_odes, ODEINTSolver())
 
         return time_evolver

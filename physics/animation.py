@@ -36,7 +36,7 @@ class PhysicsAnimation:
         # Define how much larger the plot will be than the size of the pendulum
         scale_margin_factor_x = 6
         scale_margin_factor_y = 2
-        L = 1#self._simulation.pendulum().prop().L()
+        L = 5#self._simulation.pendulum().prop().L()
         scale_x = (-1 * scale_margin_factor_x * L, scale_margin_factor_x * L)
         scale_y = (-1 * scale_margin_factor_y * L, scale_margin_factor_y * L)
 
@@ -102,7 +102,7 @@ class PhysicsAnimation:
         self._simulation.step_for(dt, draw_dt)
 
         # Update pendulum position plot
-        self._artist.draw(self._simulation.body.state)
+        artist_mod = self._artist.draw(self._simulation.body.state)
 
         # Update elapsed time text
         t = self._simulation.elapsed_time
@@ -131,7 +131,8 @@ class PhysicsAnimation:
         #     plt.draw()
 
         # Required for matplotlib to update
-        return self.line_main, self.time_text_main, self.energy_text, self.line_var
+        # return self.line_main, self.time_text_main, self.energy_text, self.line_var
+        return artist_mod, self.time_text_main, self.energy_text
 
     # Runs and displays an animation of the pendulum
     #

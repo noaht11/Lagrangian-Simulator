@@ -384,7 +384,11 @@ class SinglePendulumSolver(Solver):
         t = self._single_pendulum.t
         DoFs = self._single_pendulum.DoFs()
 
-        (exprs, qs, q_dots) = Lagrangian.symbolize([x, y, endpoint_x, endpoint_y], t, DoFs)
+        exprs = [x, y, endpoint_x, endpoint_y]
+        for constraint in self._single_pendulum.constraints:
+            exprs = list(map(lambda expr: constraint.apply_to(t, expr), exprs))
+
+        (exprs, qs, q_dots) = Lagrangian.symbolize(exprs, t, DoFs)
 
         exprs_lambdas = list(map(lambda expr: sp.lambdify(qs + q_dots, expr), exprs))
 
