@@ -76,7 +76,7 @@ class PhysicsAnimation:
 
         # Required for matplotlib to update
         # return artist_mod, self.time_text_main, self.energy_text, self.line_var
-        return artist_mod, self.time_text_main, self.energy_text
+        return tuple([*artist_mod, self.time_text_main, self.energy_text])
 
     # def _relim(self, ax_min, ax_max, var_tracker: VariableTracker) -> Tuple[float, float, bool]:
     #     var_min = var_tracker.min()
@@ -132,7 +132,7 @@ class PhysicsAnimation:
 
         # Required for matplotlib to update
         # return self.line_main, self.time_text_main, self.energy_text, self.line_var
-        return artist_mod, self.time_text_main, self.energy_text
+        return tuple([*artist_mod, self.time_text_main, self.energy_text])
 
     # Runs and displays an animation of the pendulum
     #

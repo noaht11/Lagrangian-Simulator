@@ -141,10 +141,10 @@ class SinglePendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
 
 class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
     """
-    TODO
+    TODO mutable or not mutable (_next)?
     """
 
-    def __init__(self, this: SinglePendulumLagrangianPhysics, constraints: List[Constraint] = None):
+    def __init__(self, this: SinglePendulumLagrangianPhysics, constraints: List[Constraint] = []):
         self._this = this
         self._constraints = constraints
 
@@ -166,17 +166,9 @@ class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
     def _this_DoFs(self) -> List[DegreeOfFreedom]:
         """Returns a list of only those coordinates that are unconstrained degrees of freedom"""
         DoFs = self._this.DoFs()
-        if (self._constraints is not None):
-            DoFs = Lagrangian.unconstrained_DoFs(DoFs, self._constraints)
+        DoFs = Lagrangian.unconstrained_DoFs(DoFs, self._constraints)
         return DoFs
     
-    def _apply_constraints(self, t: sp.Symbol, expression: sp.Expr) -> sp.Expr:
-        constrained = expression
-        if self._constraints is not None:
-            for constraint in self._constraints:
-                constrained = constraint.apply_to(t, constrained)
-        return constrained
-
     def DoFs(self) -> List[DegreeOfFreedom]:
         """Implementation of superclass method"""
         DoFs = self._this_DoFs() # Only include unconstrained degrees of freedom
@@ -194,7 +186,7 @@ class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
             U += self.next.U(t)
 
         # Apply constraints    
-        U = self._apply_constraints(t, U)
+        U = Lagrangian.apply_constraints(t, U, self._constraints)
 
         return U
     
@@ -208,7 +200,7 @@ class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
             T += self.next.T(t)
         
         # Apply constraints
-        T = self._apply_constraints(t, T)
+        T = Lagrangian.apply_constraints(t, T, self._constraints)
 
         return T
     
@@ -339,6 +331,19 @@ class SinglePendulum(LagrangianBody):
         endpoint = self._pendulum_physics.endpoint(t)
         return endpoint
 
+class MultiPendulum(LagrangianBody):
+    def __init__(self, t: sp.Symbol, physics: MultiPendulumLagrangianPhysics, *constraints: Constraint):
+        super().__init__(t, physics, *constraints)
+    
+        self._pendulum_physics = physics
+    
+    @property
+    def this(self) -> SinglePendulumLagrangianPhysics: return self._pendulum_physics.this
+    
+    @property
+    def next(self) -> MultiPendulumLagrangianPhysics: return self._pendulum_physics.next
+
+
 ###################################################################################################################################################################################
 # ANIMATION CLASSES
 ###################################################################################################################################################################################
@@ -353,7 +358,7 @@ class SinglePendulumArtist(Artist):
     
     def reset(self, axes):
         self._line, = axes.plot([], [], '-', lw=4)
-        return self._line
+        return self._line,
 
     def draw(self, state: List[float]):
         x = self._x(*state)
@@ -365,7 +370,31 @@ class SinglePendulumArtist(Artist):
         y_data = [y, endpoint_y]
         self._line.set_data(x_data, y_data)
 
-        return self._line
+        return self._line,
+
+class MultiPendulumArtist(Artist):
+
+    def __init__(self, this: SinglePendulumArtist, next: "MultiPendulumArtist"):
+        self._this = this
+        self._next = next
+
+    def reset(self, axes):
+        this_mod = self._this.reset(axes)
+        
+        if (self._next is not None):
+            next_mod = self._next.reset(axes)
+            return this_mod, next_mod
+
+        return this_mod,
+
+    def draw(self, state: List[float]):
+        this_mod = self._this.draw(state)
+        
+        if (self._next is not None):
+            next_mod = self._next.draw(state)
+            return this_mod, next_mod
+
+        return this_mod,
 
 ###################################################################################################################################################################################
 # SOLVER CLASSES
@@ -385,14 +414,22 @@ class SinglePendulumSolver(Solver):
         DoFs = self._single_pendulum.DoFs()
 
         exprs = [x, y, endpoint_x, endpoint_y]
-        for constraint in self._single_pendulum.constraints:
-            exprs = list(map(lambda expr: constraint.apply_to(t, expr), exprs))
+        exprs = list(map(lambda expr: Lagrangian.apply_constraints(t, expr, self._single_pendulum.constraints), exprs))
 
         (exprs, qs, q_dots) = Lagrangian.symbolize(exprs, t, DoFs)
 
         exprs_lambdas = list(map(lambda expr: sp.lambdify(qs + q_dots, expr), exprs))
 
         return SinglePendulumArtist(*exprs_lambdas)
+
+class MultiPendulumSolver(Solver):
+
+    def __init__(self, multi_pendulum: MultiPendulum):
+        super().__init__(multi_pendulum)
+        self._multi_pendulum = multi_pendulum
+    
+    def artist(self) -> MultiPendulumArtist:
+        pass
 
 ###################################################################################################################################################################################
 # HELPERS

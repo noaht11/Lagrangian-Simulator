@@ -103,6 +103,12 @@ class Lagrangian:
                     constrained = True
             if not constrained: free_DoFs.append(DoF)
         return free_DoFs
+    
+    @staticmethod
+    def apply_constraints(t: sp.Symbol, expr: sp.Expr, constraints: List[Constraint]) -> sp.Expr:
+        for constraint in constraints:
+            expr = constraint.apply_to(t, expr)
+        return expr
 
     @staticmethod
     def symbolize(expressions: List[sp.Expr], t: sp.Symbol, DoFs: List[DegreeOfFreedom]) -> Tuple[List[sp.Expr], List[sp.Symbol], List[sp.Symbol]]:
@@ -246,8 +252,7 @@ class LagrangianBody:
         t = self._t
         U = self._physics.U(t)
 
-        for constraint in self._constraints:
-            U = constraint.apply_to(t, U)
+        U = Lagrangian.apply_constraints(t, U, self._constraints)
         
         return U.doit().simplify()
     
@@ -264,8 +269,7 @@ class LagrangianBody:
         t = self._t
         T = self._physics.T(t)
 
-        for constraint in self._constraints:
-            T = constraint.apply_to(t, T)
+        T = Lagrangian.apply_constraints(t, T, self._constraints)
         
         return T.doit().simplify()
     
