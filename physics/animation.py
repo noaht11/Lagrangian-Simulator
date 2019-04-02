@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 from abc import ABC, abstractmethod
 from time import time
 
@@ -11,11 +11,11 @@ from physics.simulation import PhysicsSimulation
 class Artist(ABC):
 
     @abstractmethod
-    def reset(self, axes):
+    def reset(self, axes) -> Tuple:
         pass
 
     @abstractmethod
-    def draw(self, t: float, state: np.ndarray):
+    def draw(self, t: float, state: np.ndarray) -> Tuple:
         pass
 
 class PhysicsAnimation:
@@ -36,12 +36,12 @@ class PhysicsAnimation:
         # Define how much larger the plot will be than the size of the pendulum
         scale_margin_factor_x = 6
         scale_margin_factor_y = 2
-        L = 5#self._simulation.pendulum().prop().L()
+        L = 0.045#self._simulation.pendulum().prop().L()
         scale_x = (-1 * scale_margin_factor_x * L, scale_margin_factor_x * L)
         scale_y = (-1 * scale_margin_factor_y * L, scale_margin_factor_y * L)
 
         # Create the subplot
-        self.ax_main = self.fig.add_subplot(211, aspect = 'equal', autoscale_on = False, xlim = scale_x, ylim = scale_y)
+        self.ax_main = self.fig.add_subplot(111, aspect = 'equal', autoscale_on = False, xlim = scale_x, ylim = scale_y)
         self.ax_main.set_axis_off() # Hide the axes
 
         # Main horizontal axis
@@ -75,8 +75,7 @@ class PhysicsAnimation:
         # self.line_var.set_data([], [])
 
         # Required for matplotlib to update
-        # return artist_mod, self.time_text_main, self.energy_text, self.line_var
-        return tuple([*artist_mod, self.time_text_main, self.energy_text])
+        return artist_mod + (self.time_text_main, self.energy_text)
 
     # def _relim(self, ax_min, ax_max, var_tracker: VariableTracker) -> Tuple[float, float, bool]:
     #     var_min = var_tracker.min()
@@ -132,7 +131,7 @@ class PhysicsAnimation:
 
         # Required for matplotlib to update
         # return self.line_main, self.time_text_main, self.energy_text, self.line_var
-        return [*artist_mod, self.time_text_main, self.energy_text]
+        return artist_mod + (self.time_text_main, self.energy_text)
 
     # Runs and displays an animation of the pendulum
     #

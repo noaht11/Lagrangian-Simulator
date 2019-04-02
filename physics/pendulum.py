@@ -168,32 +168,35 @@ class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
     
     def DoFs(self) -> List[DegreeOfFreedom]:
         """Implementation of superclass method"""
-        DoFs = self.this.DoFs()
+        this_DoFs = self.this.DoFs()
+
+        next_DoFs = []
         if (self.next is not None):
-            DoFs += self.next.DoFs()
-        return DoFs
+            next_DoFs = self.next.DoFs()
+
+        return this_DoFs + next_DoFs
     
     def U(self, t: sp.Symbol) -> sp.Expr:
         """Implementation of superclass method"""
         # Potential energy of this
-        U = self.this.U(t)
+        total_U = self.this.U(t)
 
         # Potential energy of next
         if (self.next is not None):
-            U += self.next.U(t)
+            total_U += self.next.U(t)
 
-        return U
+        return total_U
     
     def T(self, t: sp.Symbol) -> sp.Expr:
         """Implementation of superclass method"""
         # Kinetic energy of this
-        T = self.this.T(t)
+        total_T = self.this.T(t)
         
         # Kinetic energy of next
         if (self.next is not None):
-            T += self.next.T(t)
+            total_T += self.next.T(t)
 
-        return T
+        return total_T
     
     def attach_pendulum(self, t: sp.Symbol, theta: DegreeOfFreedom, physics: SinglePendulumLagrangianPhysics.PendulumPhysics) -> "MultiPendulumLagrangianPhysics":
         """Constructs another MultiPendulumLagrangianPhysics attached to the endpoint of this MultiPendulumLagrangianPhysics
@@ -207,7 +210,7 @@ class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
 
         # Get the endpoint of this pendulum
         x_end, y_end = self.this.endpoint(t)
-        coordinates = SinglePendulumLagrangianPhysics.PendulumCoordinates(sp.Lambda(t, x_end), sp.Lambda(t, y_end), theta)
+        coordinates = SinglePendulumLagrangianPhysics.PendulumCoordinates(sp.Lambda(t, x_end), sp.Lambda(t, y_end), theta.coordinate)
 
         # Create Single Pendulum
         pendulum = SinglePendulumLagrangianPhysics(coordinates, physics, [theta])
@@ -366,23 +369,23 @@ class MultiPendulumArtist(Artist):
         self._this = this
         self._next = next
 
-    def reset(self, axes):
+    def reset(self, axes) -> Tuple:
         this_mod = self._this.reset(axes)
         
         if (self._next is not None):
             next_mod = self._next.reset(axes)
-            return this_mod, next_mod
+            return this_mod + next_mod
 
-        return this_mod,
+        return this_mod
 
-    def draw(self, t: float, state: np.ndarray):
-        this_mod = self._this.draw(state)
+    def draw(self, t: float, state: np.ndarray) -> Tuple:
+        this_mod = self._this.draw(t, state)
         
         if (self._next is not None):
-            next_mod = self._next.draw(state)
-            return this_mod, next_mod
+            next_mod = self._next.draw(t, state)
+            return this_mod + next_mod
 
-        return this_mod,
+        return this_mod
 
 ###################################################################################################################################################################################
 # SOLVER CLASSES
@@ -423,8 +426,9 @@ class MultiPendulumSolver(Solver):
         self._multi_pendulum = multi_pendulum
     
     def _create_artist(self, multi_pendulum_physics: MultiPendulumLagrangianPhysics) -> MultiPendulumArtist:
+        next_artist = None
         if (multi_pendulum_physics.next is not None):
-            next_artist = _create_artist(multi_pendulum_physics.next)
+            next_artist = self._create_artist(multi_pendulum_physics.next)
         
         t = self._multi_pendulum.t
         single = multi_pendulum_physics.this
@@ -440,7 +444,7 @@ class MultiPendulumSolver(Solver):
         return MultiPendulumArtist(single_artist, next_artist)
 
     def artist(self) -> MultiPendulumArtist:
-        pass
+        return self._create_artist(self._multi_pendulum.physics)
 
 ###################################################################################################################################################################################
 # HELPERS
@@ -454,22 +458,18 @@ def n_link_pendulum(n: int, physics: SinglePendulumLagrangianPhysics.PendulumPhy
         raise AssertionError("n must be at least 1")
 
     t = sp.Symbol("t")
-
-    root_pendulum = None
-    last_pendulum = None
-
-    thetas = []
-    for i in range(n):
-        theta = DegreeOfFreedom("theta_" + str(i + 1)) # 1-index the thetas
-
-        thetas.append(theta)
-
-        single_pendulum = SinglePendulumLagrangianPhysics(SinglePendulumLagrangianPhysics.PendulumCoordinates(x, y, theta), physics)
-
-        if (root_pendulum is None):
-            root_pendulum = MultiPendulumLagrangianPhysics(single_pendulum)
-            last_pendulum = root_pendulum
-        else:
-            last_pendulum = last_pendulum.attach_pendulum(t, single_pendulum)
+    x_0 = DegreeOfFreedom("x_0")
+    y_0 = DegreeOfFreedom("y_0")
+    theta_0 = DegreeOfFreedom("theta_0")
     
-    return (root_pendulum, t, xs[0], ys[0], thetas)
+    root_single_pendulum = SinglePendulumLagrangianPhysics(SinglePendulumLagrangianPhysics.PendulumCoordinates(x_0.coordinate, y_0.coordinate, theta_0.coordinate), physics, [x_0, y_0, theta_0])
+    root_pendulum = MultiPendulumLagrangianPhysics(root_single_pendulum)
+    last_pendulum = root_pendulum
+
+    thetas = [theta_0]
+    for i in range(n - 1):
+        theta = DegreeOfFreedom("theta_" + str(i + 1)) # 1-index the thetas
+        thetas.append(theta)
+        last_pendulum = last_pendulum.attach_pendulum(t, theta, physics)
+    
+    return (root_pendulum, t, x_0, y_0, thetas)

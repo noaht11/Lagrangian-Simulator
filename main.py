@@ -4,7 +4,9 @@ import sympy as sp
 from math import pi
 
 from physics.lagrangian import LagrangianBody, DegreeOfFreedom, Constraint
-from physics.pendulum import SinglePendulum, SinglePendulumLagrangianPhysics, SinglePendulumArtist, SinglePendulumSolver, CompoundPendulumPhysics
+from physics.pendulum import CompoundPendulumPhysics
+from physics.pendulum import SinglePendulumLagrangianPhysics, SinglePendulum, SinglePendulumSolver
+from physics.pendulum import n_link_pendulum, MultiPendulum, MultiPendulumSolver
 from physics.animation import PhysicsAnimation
 
 sp.init_printing()
@@ -15,9 +17,12 @@ def step(text: str):
 def done():
     print("Done"); sys.stdout.flush()
 
-if __name__ == "__main__":
-    print("")
 
+###################################################################################################################################################################################
+# SINGLE PENDULUM
+###################################################################################################################################################################################
+
+def single_pendulum_test():
     step("Defining Pendulum...")
     single_pendulum_physics = CompoundPendulumPhysics(
             L = 5,
@@ -33,7 +38,6 @@ if __name__ == "__main__":
     coordinates = SinglePendulumLagrangianPhysics.PendulumCoordinates(x, y, theta)
 
     pendulum_lagrangian_physics = SinglePendulumLagrangianPhysics(coordinates, single_pendulum_physics, [x, y, theta])
-    # (pendulum, t, x, y, thetas) = n_link_pendulum(2, single_pendulum_physics)
     done()
 
     step("Constructing Lagrangian Body...")
@@ -57,27 +61,41 @@ if __name__ == "__main__":
     animation.init()
     animation.run(1/50, 1/50, 10000)
 
-    # step("Calculating Lagrangian...")
-    # L = body.lagrangian()
-    # done()
+###################################################################################################################################################################################
+# MULTI PENDULUM
+###################################################################################################################################################################################
 
-    # step("Generating Symbolic ODE Equations...")
-    # odeExpressions = L.solve()
-    # done()
+if __name__ == "__main__":
+    print("")
 
-    # step("Converting to Numerically Solvable Equations...")
-    # solver = LagrangianNumericalSolver.from_ode_expr(odeExpressions)
-    # done()
+    step("Defining Pendulum...")
+    single_pendulum_physics = CompoundPendulumPhysics(
+            L = 0.045,
+            m = 0.003,
+            I = 0
+        )
+    (pendulum_lagrangian_physics, t, x, y, thetas) = n_link_pendulum(2, single_pendulum_physics)
+    done()
 
-    # state = [
-    #     0,
-    #     pi/2,
-    #     pi/4,
-    #     0,
-    #     2,
-    #     3
-    # ]
+    step("Constructing Lagrangian Body...")
+    pendulum = MultiPendulum(t, pendulum_lagrangian_physics, Constraint(x, sp.S.Zero), Constraint(y, 0.0025*sp.cos(2*pi*120*t)))
+    done()
 
-    # print(solver.state_to_y(0, state))
+    solver = MultiPendulumSolver(pendulum)
+    
+    step("Generating Simulation...")
+    simulation = solver.simulate([pi/10, pi/10, 0, 0])
+    done()
+
+    step("Generating Artist...")
+    artist = solver.artist()
+    done()
+
+    step("Generating Animation...")
+    animation = PhysicsAnimation(simulation, artist)
+    done()
+
+    animation.init()
+    animation.run(1/5000, 1/5000, 10000)
 
     print("")

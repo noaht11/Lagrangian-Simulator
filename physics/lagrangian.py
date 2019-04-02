@@ -240,7 +240,9 @@ class LagrangianBody:
         """
         Returns a list of the coordinates that are degrees of freedom of this body
         """
-        return Lagrangian.unconstrained_DoFs(self._physics.DoFs(), self._constraints)
+        all_DoFs = self._physics.DoFs()
+        unconstrained = Lagrangian.unconstrained_DoFs(all_DoFs, self._constraints)
+        return unconstrained
 
     @abstractmethod
     def U(self) -> sp.Expr:
