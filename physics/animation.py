@@ -19,9 +19,16 @@ class Artist(ABC):
         pass
 
 class PhysicsAnimation:
-    def __init__(self, simulation: PhysicsSimulation, artist: Artist):
+
+    class AnimationConfig:
+
+        def __init__(self, size: float):
+            self.size = size
+
+    def __init__(self, simulation: PhysicsSimulation, artist: Artist, config: AnimationConfig):
         self._simulation = simulation
         self._artist = artist
+        self._config = config
 
     def init(self):
         """Performs all the setup necessary before running an animation
@@ -32,11 +39,12 @@ class PhysicsAnimation:
         self.fig = plt.figure(figsize=(8, 8))
 
         # Define how much larger the plot will be than the size of the pendulum
-        scale_margin_factor_x = 3
-        scale_margin_factor_y = 3
-        L = 0.045
-        scale_x = (-1 * scale_margin_factor_x * L, scale_margin_factor_x * L)
-        scale_y = (-1 * scale_margin_factor_y * L, scale_margin_factor_y * L)
+        # scale_margin_factor_x = 3
+        # scale_margin_factor_y = 3
+        # L = 0.045
+        size = self._config.size
+        scale_x = (-size, size)
+        scale_y = (-size, size)
 
         # Create the subplot
         self.ax_main = self.fig.add_subplot(111, aspect = 'equal', autoscale_on = False, xlim = scale_x, ylim = scale_y)
