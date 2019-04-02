@@ -207,6 +207,30 @@ class Lagrangian:
 
         return Lagrangian.ODEExpressions(t, qs, p_qs, q_dots, forces, momenta, velocities)
 
+class Dissipation:
+    """TODO"""
+    
+    def __init__(self, F: sp.Expr, t: sp.Symbol, DoFs: List[DegreeOfFreedom]):
+        self._F = F
+        self._t = t
+        self._DoFs = DoFs
+    
+    def solve(self) -> List[sp.Expr]:
+        F = self._F
+        t = self._t
+        DoFs = self._DoFs
+
+        dissipative_forces = []
+        for q in DoFs:
+            q_dot = sp.diff(q(t), t)
+            dF_dqdot = sp.diff(F, q_dot).doit()
+            dF_dqdot = sp.simplify(dF_dqdot)
+            dissipative_forces.append(dF_dqdot)
+        
+        (dissipative_forces, _, _) = Lagrangian.symbolize(dissipative_forces, t, DoFs)
+
+        return dissipative_forces
+
 class LagrangianBody:
 
     class LagrangianPhysics(ABC):
@@ -223,6 +247,11 @@ class LagrangianBody:
         @abstractmethod
         def T(self, t: sp.Symbol) -> sp.Expr:
             """See LagrangianBody.T"""
+            pass
+        
+        @abstractmethod
+        def F(self, t: sp.Symbol) -> sp.Expr:
+            """See LagrangianBody.F"""
             pass
 
     def __init__(self, t: sp.Symbol, physics: LagrangianPhysics, *constraints: Constraint):
@@ -280,9 +309,30 @@ class LagrangianBody:
         
         return T_constrained.doit().simplify()
     
+    @abstractmethod
+    def F(self) -> sp.Expr:
+        """Generates and returns a symbolic expression for the dissipation function of this body
+        
+        Arguments:
+            `t` : a symbol for the time variable
+
+        Returns:
+            A symbolic expression for the dissipation function of this body
+        """
+        t = self._t
+        F_free = self._physics.F(t)
+
+        F_constrained = Lagrangian.apply_constraints(t, F_free, self._constraints)
+
+        return F_constrained.doit().simplify()
+    
     def lagrangian(self) -> Lagrangian:
         """Generates and returns the (simplified) Lagrangian for this body"""
         return Lagrangian(self.T() - self.U(), self._t, self.DoFs())
+    
+    def dissipation(self) -> Dissipation:
+        """Generates and returns a Dissipation instance for this body"""
+        return Dissipation(self.F(), self._t, self.DoFs())
     
     def constrain(self, *constraints: Constraint):
         return LagrangianBody(self._physics, self._t, constraints)

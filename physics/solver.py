@@ -31,22 +31,20 @@ class Solver:
         return NumericalBody(U_lambda, T_lambda)
     
     def _time_evolver(self) -> TimeEvolver:
+        t = self._lagrangian_body.t
+
+        # Solve the Lagrangian part of the equation of motion
         ode_expr = self._lagrangian_body.lagrangian().solve()
 
-        force_lambdas    = [lambdify([ode_expr.t] + ode_expr.qs + ode_expr.q_dots, force_expr) for force_expr in ode_expr.force_exprs]
-        momentum_lambdas = [lambdify([ode_expr.t] + ode_expr.qs + ode_expr.q_dots, momentum_expr) for momentum_expr in ode_expr.momentum_exprs]
-        velocity_lambdas = [lambdify([ode_expr.t] + ode_expr.qs + ode_expr.p_qs, velocity_expr) for velocity_expr in ode_expr.velocity_exprs]
+        force_lambdas    = [lambdify([t] + ode_expr.qs + ode_expr.q_dots, force_expr) for force_expr in ode_expr.force_exprs]
+        momentum_lambdas = [lambdify([t] + ode_expr.qs + ode_expr.q_dots, momentum_expr) for momentum_expr in ode_expr.momentum_exprs]
+        velocity_lambdas = [lambdify([t] + ode_expr.qs + ode_expr.p_qs, velocity_expr) for velocity_expr in ode_expr.velocity_exprs]
 
-        # def force_lambdas(self) -> List[Callable[..., float]]:
-        #     return list(map(lambda force_expr: sp.lambdify([self._t] + self._qs + self._q_dots, force_expr), self._force_exprs))
-        
-        # def momentum_lambdas(self) -> List[Callable[..., float]]:
-        #     return list(map(lambda momentum_expr: sp.lambdify([self._t] + self._qs + self._q_dots, momentum_expr), self._momentum_exprs))
-        
-        # def velocity_lambdas(self) -> List[Callable[..., float]]:
-        #     return list(map(lambda velocity_expr: sp.lambdify([self._t] + self._qs + self._p_qs, velocity_expr), self._velocity_exprs))
+        # Solve the dissipation part of the equation of motion
+        dissipative_force_exprs = self._lagrangian_body.dissipation().solve()
+        dissipative_force_lambdas = [lambdify([t] + ode_expr.qs + ode_expr.q_dots, dissipative_force_expr) for dissipative_force_expr in dissipative_force_exprs]
 
-        numerical_odes = LagrangianNumericalODEs(ode_expr.num_q, force_lambdas, momentum_lambdas, velocity_lambdas)
+        numerical_odes = LagrangianNumericalODEs(ode_expr.num_q, force_lambdas, momentum_lambdas, velocity_lambdas, dissipative_force_lambdas)
         time_evolver = TimeEvolver(numerical_odes, ODEINTSolver())
 
         return time_evolver

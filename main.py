@@ -1,7 +1,8 @@
 import sys
+from math import pi
 
 import sympy as sp
-from math import pi
+import numpy as np
 
 from physics.lagrangian import LagrangianBody, DegreeOfFreedom, Constraint
 from physics.pendulum import CompoundPendulumPhysics
@@ -17,49 +18,11 @@ def step(text: str):
 def done():
     print("Done"); sys.stdout.flush()
 
+def create_init_state(n: int, theta: float):
+    qs = np.ones(n, dtype = np.float32) * theta
+    q_dots = np.zeros(n, dtype = np.float32)
 
-###################################################################################################################################################################################
-# SINGLE PENDULUM
-###################################################################################################################################################################################
-
-def single_pendulum_test():
-    step("Defining Pendulum...")
-    single_pendulum_physics = CompoundPendulumPhysics(
-            L = 5,
-            m = 3,
-            I = 6
-        )
-        
-    t = sp.Symbol("t")
-    x = DegreeOfFreedom("x")
-    y = DegreeOfFreedom("y")
-    theta = DegreeOfFreedom("theta")
-
-    coordinates = SinglePendulumLagrangianPhysics.PendulumCoordinates(x, y, theta)
-
-    pendulum_lagrangian_physics = SinglePendulumLagrangianPhysics(coordinates, single_pendulum_physics, [x, y, theta])
-    done()
-
-    step("Constructing Lagrangian Body...")
-    pendulum = SinglePendulum(t, pendulum_lagrangian_physics, Constraint(x, sp.S.Zero), Constraint(y, 5.0/20.0*sp.cos(1000*t)))
-    done()
-
-    solver = SinglePendulumSolver(pendulum)
-    
-    step("Generating Simulation...")
-    simulation = solver.simulate([pi/4, 0])
-    done()
-
-    step("Generating Artist...")
-    artist = solver.artist()
-    done()
-
-    step("Generating Animation...")
-    animation = PhysicsAnimation(simulation, artist)
-    done()
-
-    animation.init()
-    animation.run(1/50, 1/50, 10000)
+    return np.concatenate((qs, q_dots))
 
 ###################################################################################################################################################################################
 # MULTI PENDULUM
@@ -68,6 +31,9 @@ def single_pendulum_test():
 if __name__ == "__main__":
     print("")
 
+    n = 2
+    theta = pi/50
+
     step("Defining Pendulum...")
     L = 0.045
     m = 0.003
@@ -75,19 +41,21 @@ if __name__ == "__main__":
     single_pendulum_physics = CompoundPendulumPhysics(
             L = L,
             m = m,
-            I = I
+            I = I,
+            k = 3E-5
         )
-    (pendulum_lagrangian_physics, t, x, y, thetas) = n_link_pendulum(2, single_pendulum_physics)
+    (pendulum_lagrangian_physics, t, x, y, thetas) = n_link_pendulum(n, single_pendulum_physics)
     done()
 
     step("Constructing Lagrangian Body...")
-    pendulum = MultiPendulum(t, pendulum_lagrangian_physics, Constraint(x, sp.S.Zero), Constraint(y, sp.S.Zero)) # 0.0025*sp.cos(2*pi*120*t)
+    pendulum = MultiPendulum(t, pendulum_lagrangian_physics, Constraint(x, sp.S.Zero), Constraint(y, 0.01*sp.cos(2*pi*34*t))) # 0.0025*sp.cos(2*pi*120*t)
     done()
 
     solver = MultiPendulumSolver(pendulum)
     
     step("Generating Simulation...")
-    simulation = solver.simulate([pi/10, pi/10, 0, 0])
+    init_state = create_init_state(n, theta)
+    simulation = solver.simulate(init_state)
     done()
 
     step("Generating Artist...")
@@ -99,6 +67,7 @@ if __name__ == "__main__":
     done()
 
     animation.init()
-    animation.run(1/100, 1/100, 10000)
+    dt = 1/40
+    animation.run(dt, dt, 10000)
 
     print("")

@@ -96,6 +96,11 @@ class SinglePendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
         def T(self, t: sp.Symbol, coordinates: "PendulumCoordinates") -> sp.Expr:
             """See `SinglePendulumLagrangianPhysics.T`"""
             pass
+        
+        @abstractmethod
+        def F(self, t: sp.Symbol, coordinates: "PendulumCoordinates") -> sp.Expr:
+            """See `SinglePendulumLagrangianPhysics.F`"""
+            pass
 
     def __init__(self, coordinates: PendulumCoordinates, physics: PendulumPhysics, DoFs: List[DegreeOfFreedom]):
         self._coordinates = coordinates
@@ -143,6 +148,10 @@ class SinglePendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
     def T(self, t: sp.Symbol) -> sp.Expr:
         """Implementation of superclass method"""
         return self._physics.T(t, self.coordinates)
+    
+    def F(self, t: sp.Symbol) -> sp.Expr:
+        """Implementation of superclass method"""
+        return self._physics.F(t, self._coordinates)
 
 class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
     """
@@ -198,6 +207,17 @@ class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
 
         return total_T
     
+    def F(self, t: sp.Symbol) -> sp.Expr:
+        """Implementation of superclass method"""
+        # Dissipation function for this
+        total_F = self.this.F(t)
+        
+        # Dissipation function for next
+        if (self.next is not None):
+            total_F += self.next.F(t)
+
+        return total_F
+    
     def attach_pendulum(self, t: sp.Symbol, theta: DegreeOfFreedom, physics: SinglePendulumLagrangianPhysics.PendulumPhysics) -> "MultiPendulumLagrangianPhysics":
         """Constructs another MultiPendulumLagrangianPhysics attached to the endpoint of this MultiPendulumLagrangianPhysics
         
@@ -236,13 +256,15 @@ class CompoundPendulumPhysics(SinglePendulumLagrangianPhysics.PendulumPhysics):
         `m`      : total mass of the pendulum
         `I`      : moment of inertia of the pendulum about an axis passing through its center,
                     perpendicular to the plane of oscillation
+        `k`      : dissipation function coefficient (strength of the dissipation of energy from the system at the joints)
         `extras` : additional, instance-specific properties
     """
 
-    def __init__(self, L: float, m: float, I: float, **extras):
+    def __init__(self, L: float, m: float, I: float, k: float = 0, **extras):
         self._L = L
         self._m = m
         self._I = I
+        self._k = k
         self._extras = extras
     
     @property
@@ -251,6 +273,8 @@ class CompoundPendulumPhysics(SinglePendulumLagrangianPhysics.PendulumPhysics):
     def m(self) -> float: return self._m
     @property
     def I(self) -> float: return self._I
+    @property
+    def k(self) -> float: return self._k
     @property
     def extras(self) -> Dict[str, float]: return self._extras
 
@@ -302,6 +326,17 @@ class CompoundPendulumPhysics(SinglePendulumLagrangianPhysics.PendulumPhysics):
         T_rotation = 1/2*I * theta_dot**2
 
         return T_translation + T_rotation
+
+    def F(self, t: sp.Symbol, coordinates: SinglePendulumLagrangianPhysics.PendulumCoordinates) -> sp.Expr:
+        """Implementation of superclass method"""
+        k = self.k
+        theta = coordinates.theta
+
+        theta_dot = sp.diff(theta(t), t)
+
+        rayleigh_dissipation = 1/2*k*theta_dot**2
+
+        return rayleigh_dissipation
 
 ###################################################################################################################################################################################
 # LAGRANGIAN BODY CLASSES

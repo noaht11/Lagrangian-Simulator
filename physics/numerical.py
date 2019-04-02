@@ -29,15 +29,17 @@ class NumericalODEs(ABC):
 class LagrangianNumericalODEs(NumericalODEs):
     """TODO"""
 
-    def __init__(self, num_q: int, forces: List[Callable[..., float]], momenta: List[Callable[..., float]], velocities: List[Callable[..., float]]):
+    def __init__(self, num_q: int, forces: List[Callable[..., float]], momenta: List[Callable[..., float]], velocities: List[Callable[..., float]], dissipative_forces: List[Callable[..., float]]):
         assert(num_q == len(forces))
         assert(num_q == len(momenta))
         assert(num_q == len(velocities))
+        assert(num_q == len(dissipative_forces))
 
         self._num_q = num_q
         self._forces = forces
         self._momenta = momenta
         self._velocities = velocities
+        self._dissipative_forces = dissipative_forces
     
     def state_to_y(self, t: float, state: np.ndarray) -> np.ndarray:
         """Implementation of superclass method"""
@@ -46,7 +48,6 @@ class LagrangianNumericalODEs(NumericalODEs):
         q_dots = state[num_q:]
 
         p_qs = np.array([momentum(t, *qs, *q_dots) for momentum in self._momenta])
-        # p_qs = list(map(lambda momentum: momentum(t, *qs, *q_dots), self._momenta))
 
         return np.concatenate((qs, p_qs))
     
@@ -57,9 +58,10 @@ class LagrangianNumericalODEs(NumericalODEs):
         p_qs = y[num_q:]
 
         q_dots = np.array([velocity(t, *qs, *p_qs) for velocity in self._velocities])
-        p_q_dots = np.array([force(t, *qs, *q_dots) for force in self._forces])
-        # q_dots = list(map(lambda velocity: velocity(t, *qs, *p_qs), self._velocities))
-        # p_q_dots = list(map(lambda force: force(t, *qs, *q_dots), self._forces))
+        
+        forces = np.array([force(t, *qs, *q_dots) for force in self._forces])
+        dissipative_forces = np.array([dissipative_force(t, *qs, *q_dots) for dissipative_force in self._dissipative_forces])
+        p_q_dots = forces - dissipative_forces
 
         return np.concatenate((q_dots, p_q_dots))
 
@@ -70,23 +72,25 @@ class LagrangianNumericalODEs(NumericalODEs):
         p_qs = y[num_q:]
 
         q_dots = np.array([velocity(t, *qs, *p_qs) for velocity in self._velocities])
-        # q_dots = list(map(lambda velocity: velocity(t, *qs, *p_qs), self._velocities))
 
         return np.concatenate((qs, q_dots))
 
 class ODESolver(ABC):
-    # Solves the ODE defined by:
-    #
-    #   dy/dt = dy_dt(t, y)
-    # 
-    # with initial condition:
-    #
-    #   y(t_0) = y_0
-    #
-    # to find:
-    #
-    #   y(t) between t_0 and t_0 + dt
-    #
+    """Solves an ODE
+
+    The ODE must be defined by:
+    
+      dy/dt = dy_dt(t, y)
+    
+    with initial condition:
+    
+      y(t_0) = y_0
+    
+    to find:
+    
+      y(t) between t_0 and t_0 + dt
+    """
+
     @abstractmethod
     def solve_ode(self, t_0: float, y_0: np.ndarray, dy_dt: Callable[[float, np.ndarray], np.ndarray], dt: float) -> np.ndarray:
         pass
