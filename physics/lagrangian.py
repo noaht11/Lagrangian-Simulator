@@ -52,9 +52,9 @@ class Lagrangian:
     """Represents the Lagrangian for a physical system
 
     Attributes:
-        `L`   : symbolic expression for the Lagrangian of the system
-        `t`   : a symbol for the time variable
-        `DoF` : degrees of freedom as a List of symbolic functions representing the coordinates whose forces and momenta should be derived
+        'L'   : symbolic expression for the Lagrangian of the system
+        't'   : a symbol for the time variable
+        'DoF' : degrees of freedom as a List of symbolic functions representing the coordinates whose forces and momenta should be derived
     """
 
     class ODEExpressions:
@@ -257,11 +257,11 @@ class LagrangianBody:
             A symbolic expression for the potential energy of the pendulum
         """
         t = self._t
-        U = self._physics.U(t)
+        U_free = self._physics.U(t)
 
-        U = Lagrangian.apply_constraints(t, U, self._constraints)
+        U_constrained = Lagrangian.apply_constraints(t, U_free, self._constraints)
         
-        return U.doit().simplify()
+        return U_constrained.doit().simplify()
     
     @abstractmethod
     def T(self) -> sp.Expr:
@@ -274,11 +274,11 @@ class LagrangianBody:
             A symbolic expression for the kinetic energy of the pendulum
         """
         t = self._t
-        T = self._physics.T(t)
+        T_free = self._physics.T(t)
 
-        T = Lagrangian.apply_constraints(t, T, self._constraints)
+        T_constrained = Lagrangian.apply_constraints(t, T_free, self._constraints)
         
-        return T.doit().simplify()
+        return T_constrained.doit().simplify()
     
     def lagrangian(self) -> Lagrangian:
         """Generates and returns the (simplified) Lagrangian for this body"""

@@ -69,16 +69,19 @@ if __name__ == "__main__":
     print("")
 
     step("Defining Pendulum...")
+    L = 0.045
+    m = 0.003
+    I = 1/12*m*L**2
     single_pendulum_physics = CompoundPendulumPhysics(
-            L = 0.045,
-            m = 0.003,
-            I = 0
+            L = L,
+            m = m,
+            I = I
         )
     (pendulum_lagrangian_physics, t, x, y, thetas) = n_link_pendulum(2, single_pendulum_physics)
     done()
 
     step("Constructing Lagrangian Body...")
-    pendulum = MultiPendulum(t, pendulum_lagrangian_physics, Constraint(x, sp.S.Zero), Constraint(y, 0.0025*sp.cos(2*pi*120*t)))
+    pendulum = MultiPendulum(t, pendulum_lagrangian_physics, Constraint(x, sp.S.Zero), Constraint(y, sp.S.Zero)) # 0.0025*sp.cos(2*pi*120*t)
     done()
 
     solver = MultiPendulumSolver(pendulum)
@@ -96,6 +99,6 @@ if __name__ == "__main__":
     done()
 
     animation.init()
-    animation.run(1/5000, 1/5000, 10000)
+    animation.run(1/100, 1/100, 10000)
 
     print("")
