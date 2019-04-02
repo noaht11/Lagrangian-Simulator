@@ -32,7 +32,7 @@ class PhysicsAnimation:
         self.fig = plt.figure(figsize=(8, 8))
 
         # Define how much larger the plot will be than the size of the pendulum
-        scale_margin_factor_x = 6
+        scale_margin_factor_x = 3
         scale_margin_factor_y = 3
         L = 0.045
         scale_x = (-1 * scale_margin_factor_x * L, scale_margin_factor_x * L)

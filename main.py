@@ -35,7 +35,7 @@ if __name__ == "__main__":
     print("")
 
     n = 2
-    theta = pi/50
+    theta = pi/10
 
     step("Defining Pendulum...")
     L = 0.045
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     done()
 
     step("Constructing Lagrangian Body...")
-    pendulum = MultiPendulum(t, pendulum_lagrangian_physics, Constraint(x, sp.S.Zero), Constraint(y, create_forcing(0, 60)))
+    pendulum = MultiPendulum(t, pendulum_lagrangian_physics, Constraint(x, create_forcing(0.0, 140/(2*pi))), Constraint(y, create_forcing(0.0, 140/(2*pi))))
     done()
 
     solver = MultiPendulumSolver(pendulum)
@@ -70,7 +70,8 @@ if __name__ == "__main__":
     done()
 
     animation.init()
-    dt = 1/40
-    animation.run(dt, dt, 10000)
+    dt = 1/400
+    draw_dt = dt
+    animation.run(dt, draw_dt, 10000)
 
     print("")
