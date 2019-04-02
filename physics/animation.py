@@ -56,7 +56,6 @@ class PhysicsAnimation:
 
         # Text indicators
         self.time_text_main = self.ax_main.text(0.02, 0.95, '', transform=self.ax_main.transAxes)
-        self.energy_text = self.ax_main.text(0.02, 0.85, '', transform=self.ax_main.transAxes)
 
         self._reset()
 
@@ -67,13 +66,12 @@ class PhysicsAnimation:
         """
         self._simulation.reset()
 
-        artist_mod = self._artist.reset(self.ax_main) # TODO handle multiple modifications
+        artist_mod = self._artist.reset(self.ax_main)
 
         self.time_text_main.set_text('')
-        self.energy_text.set_text('')
 
         # Required for matplotlib to update
-        return artist_mod + (self.time_text_main, self.energy_text)
+        return artist_mod + (self.time_text_main,)
 
     def _animate(self, i: int, dt: float, draw_dt: float):
         """Internal function that performs a single animation step"""
@@ -88,15 +86,8 @@ class PhysicsAnimation:
         t = self._simulation.elapsed_time
         self.time_text_main.set_text('Time = %.1f s' % t)
 
-        # Update energy text
-        potential = self._simulation.body.U(t)
-        kinetic = self._simulation.body.T(t)
-        total_energy = potential + kinetic
-        self.energy_text.set_text('Energy = %7.3f' % (total_energy))
-
         # Required for matplotlib to update
-        # return self.line_main, self.time_text_main, self.energy_text, self.line_var
-        return artist_mod + (self.time_text_main, self.energy_text)
+        return artist_mod + (self.time_text_main,)
 
     def run(self, dt: float, draw_dt: float, t_final: float):
         """Runs and displays an animation of the pendulum

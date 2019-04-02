@@ -383,7 +383,7 @@ class SinglePendulumArtist(Artist):
         self._endpoint_y = endpoint_y
     
     def reset(self, axes):
-        self._line, = axes.plot([], [], '-', lw=4)
+        self._line, = axes.plot([], [], '-', lw=12)
         return self._line,
 
     def draw(self, t: float, state: np.ndarray):
