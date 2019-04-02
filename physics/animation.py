@@ -33,7 +33,7 @@ class PhysicsAnimation:
 
         # Define how much larger the plot will be than the size of the pendulum
         scale_margin_factor_x = 6
-        scale_margin_factor_y = 2
+        scale_margin_factor_y = 3
         L = 0.045
         scale_x = (-1 * scale_margin_factor_x * L, scale_margin_factor_x * L)
         scale_y = (-1 * scale_margin_factor_y * L, scale_margin_factor_y * L)

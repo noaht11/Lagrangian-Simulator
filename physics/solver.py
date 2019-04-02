@@ -42,6 +42,7 @@ class Solver:
 
         # Solve the dissipation part of the equation of motion
         dissipative_force_exprs = self._lagrangian_body.dissipation().solve()
+
         dissipative_force_lambdas = [lambdify([t] + ode_expr.qs + ode_expr.q_dots, dissipative_force_expr) for dissipative_force_expr in dissipative_force_exprs]
 
         numerical_odes = LagrangianNumericalODEs(ode_expr.num_q, force_lambdas, momentum_lambdas, velocity_lambdas, dissipative_force_lambdas)

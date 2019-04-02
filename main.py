@@ -24,6 +24,9 @@ def create_init_state(n: int, theta: float):
 
     return np.concatenate((qs, q_dots))
 
+def create_forcing(A: float, f: float):
+    return A * sp.cos(2*pi*f * t)
+
 ###################################################################################################################################################################################
 # MULTI PENDULUM
 ###################################################################################################################################################################################
@@ -42,13 +45,13 @@ if __name__ == "__main__":
             L = L,
             m = m,
             I = I,
-            k = 3E-5
+            k = 2E-5
         )
     (pendulum_lagrangian_physics, t, x, y, thetas) = n_link_pendulum(n, single_pendulum_physics)
     done()
 
     step("Constructing Lagrangian Body...")
-    pendulum = MultiPendulum(t, pendulum_lagrangian_physics, Constraint(x, sp.S.Zero), Constraint(y, 0.01*sp.cos(2*pi*34*t))) # 0.0025*sp.cos(2*pi*120*t)
+    pendulum = MultiPendulum(t, pendulum_lagrangian_physics, Constraint(x, sp.S.Zero), Constraint(y, create_forcing(0, 60)))
     done()
 
     solver = MultiPendulumSolver(pendulum)
