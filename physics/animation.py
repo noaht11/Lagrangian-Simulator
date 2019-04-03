@@ -45,9 +45,9 @@ class PhysicsAnimation:
 
     def _update_start_stop_text(self):
         if (self._started):
-            self._btn_start_stop.label.set_text("Stop")
+            self._btn_start_stop.label.set_text("Pause")
         else:
-            self._btn_start_stop.label.set_text("Run")
+            self._btn_start_stop.label.set_text("Play")
         plt.draw()
 
     def init(self):

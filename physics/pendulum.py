@@ -426,11 +426,10 @@ class MultiPendulumArtist(Artist):
         self._next = next
 
     def init(self, axes):
-        this_mod = self._this.init(axes)
+        self._this.init(axes)
         
         if (self._next is not None):
-            next_mod = self._next.init(axes)
-            return this_mod + next_mod
+            self._next.init(axes)
 
     def draw(self, t: float, state: np.ndarray, params: np.ndarray) -> Tuple:
         this_mod = self._this.draw(t, state, params)
