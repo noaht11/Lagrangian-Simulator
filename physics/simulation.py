@@ -23,6 +23,9 @@ class PhysicsSimulation:
 
     @property
     def parameters(self) -> np.ndarray: return self._parameters
+    
+    @parameters.setter
+    def parameters(self, value: np.ndarray): self._parameters = value
 
     # Resets the pendulum to its initial state and returns to time 0
     def reset(self):

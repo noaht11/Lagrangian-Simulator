@@ -30,9 +30,10 @@ class PhysicsAnimation:
 
     class Parameter:
 
-        def __init__(self, min: float, max: float, step: float, init_val: float, on_value_changed: Callable[[np.ndarray, float], np.ndarray]):
-            self.min = min
-            self.max = max
+        def __init__(self, name: str, min_val: float, max_val: float, step: float, init_val: float, on_value_changed: Callable[[np.ndarray, float], np.ndarray]):
+            self.name = name
+            self.min_val = min_val
+            self.max_val = max_val
             self.step = step
             self.init_val = init_val
             self.on_value_changed = on_value_changed
@@ -58,7 +59,7 @@ class PhysicsAnimation:
             self._btn_start_stop.label.set_text("Pause")
         else:
             self._btn_start_stop.label.set_text("Play")
-        plt.draw()
+        self.fig.canvas.draw_idle()
 
     def init(self):
         """Performs all the setup necessary before running an animation
@@ -109,6 +110,29 @@ class PhysicsAnimation:
             self._btn_start_stop = Button(ax_start_stop, "", color = btn_color, hovercolor = btn_color_hover)
             self._update_start_stop_text()
             self._btn_start_stop.on_clicked(self._toggle_start)
+
+        # Parameters
+        sld_color = "lightgoldenrodyellow"
+        sld_width = 0.6
+        sld_height = 0.02
+        sld_left = 0.1
+        sld_gap = 0.01
+
+        sld_bottom = sld_gap * 2
+
+        self._sliders = []
+        for parameter in self._parameters:
+            ax_param = plt.axes([sld_left, sld_bottom, sld_width, sld_height], facecolor = sld_color)
+            sld_param = Slider(ax_param, parameter.name, parameter.min_val, parameter.max_val, valinit = parameter.init_val, valstep = parameter.step)
+
+            def update_parameters(val, handler = parameter.on_value_changed):
+                self._simulation.parameters = handler(self._simulation.parameters, val)
+                pass
+
+            sld_param.on_changed(update_parameters)
+            self._sliders.append(sld_param)
+            
+            sld_bottom += sld_height + sld_gap
 
     def _reset(self):
         """Resets the animation

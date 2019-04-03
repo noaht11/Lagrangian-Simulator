@@ -36,7 +36,7 @@ def create_forcing(t: sp.Symbol, A: sp.Symbol, f: sp.Symbol) -> sp.Expr:
 
 def update_k(current_params: np.ndarray, k: float, n) -> np.ndarray:
     for i in range(n):
-        current_params[2 + 4*i] = k
+        current_params[3 + 4*i] = k
     return current_params
 
 def update_A(current_params: np.ndarray, A: float) -> np.ndarray:
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     step("Defining Pendulum...")
 
     ########################### CONFIG ###########################
-    n = 1
+    n = 2
 
     L = 0.045
     m = 0.003
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     theta = pi/10
 
     A = 0.0
-    f = 34
+    f = 0.0
     ########################### CONFIG ###########################
 
     params = create_multi_pendulum_params(n, L, m, I, k)
@@ -94,18 +94,18 @@ if __name__ == "__main__":
 
     step("Generating Animation...")
     animation = PhysicsAnimation(simulation, artist, PhysicsAnimation.AnimationConfig(
-        size = L*3,
+        size = L*4,
         en_reset = True,
         en_start_stop = True
     ), [
-        PhysicsAnimation.Parameter(0, 1, 0.01, 0, lambda current_params, new_k: update_k(current_params, new_k*5E-5, n)),
-        PhysicsAnimation.Parameter(0, 0.02, 0.001, 0, lambda current_params, new_A: update_A(current_params, new_A, n)),
-        PhysicsAnimation.Parameter(0, 500, 1, 0, lambda current_params, new_f: update_f(current_params, new_f, n))
+        PhysicsAnimation.Parameter("k", 0, 1, 0.01, k, lambda current_params, new_k: update_k(current_params, new_k*10E-5, n)),
+        PhysicsAnimation.Parameter("f (Hz)", 0, 500, 1, f, lambda current_params, new_f: update_f(current_params, new_f)),
+        PhysicsAnimation.Parameter("A (cm)", 0, 2, 0.1, A, lambda current_params, new_A: update_A(current_params, new_A*1E-2))
     ])
     done()
 
     animation.init()
-    dt = 1/400*5
+    dt = 1/400
     draw_dt = dt
     animation.run(dt, draw_dt, -1)
 
