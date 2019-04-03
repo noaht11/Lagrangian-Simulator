@@ -82,6 +82,7 @@ if __name__ == "__main__":
     step("Generating Animation...")
     animation = PhysicsAnimation(simulation, artist, PhysicsAnimation.AnimationConfig(
         size = L*3,
+        en_reset = True,
         en_start_stop = True
     ))
     done()

@@ -23,8 +23,9 @@ class PhysicsAnimation:
 
     class AnimationConfig:
 
-        def __init__(self, size: float = 1.0, en_start_stop: bool = False):
+        def __init__(self, size: float = 1.0, en_reset: bool = False, en_start_stop: bool = False):
             self.size = size
+            self.en_reset = en_reset
             self.en_start_stop = en_start_stop
 
     def __init__(self, simulation: PhysicsSimulation, artist: Artist, config: AnimationConfig):
@@ -33,6 +34,9 @@ class PhysicsAnimation:
         self._config = config
 
         self._started = True
+
+    def _reset_clicked(self, event):
+        self._reset()
 
     def _toggle_start(self, event):
         self._started = not self._started
@@ -73,12 +77,26 @@ class PhysicsAnimation:
         # Text indicators
         self.time_text_main = self.ax_main.text(0.02, 0.95, "", transform=self.ax_main.transAxes)
 
+        btn_color = "lightgoldenrodyellow"
+        btn_color_hover = "0.975"
+        btn_width = 0.1
+        btn_height = 0.04
+        btn_left = 0.8
+
+        btn_first_bottom = 0.025
+
+        # Reset button
+        if (self._config.en_reset):
+            ax_reset = plt.axes([btn_left, btn_first_bottom, btn_width, btn_height])
+            self._btn_reset = Button(ax_reset, "Reset", color = btn_color, hovercolor = btn_color_hover)
+            self._btn_reset.on_clicked(self._reset_clicked)
+
         # Start / stop button
         if (self._config.en_start_stop):
             self._started = False
 
-            ax_start_stop = plt.axes([0.8, 0.025, 0.1, 0.04])
-            self._btn_start_stop = Button(ax_start_stop, "", color = "lightgoldenrodyellow", hovercolor="0.975")
+            ax_start_stop = plt.axes([btn_left, btn_first_bottom + btn_height, btn_width, btn_height])
+            self._btn_start_stop = Button(ax_start_stop, "", color = btn_color, hovercolor = btn_color_hover)
             self._update_start_stop_text()
             self._btn_start_stop.on_clicked(self._toggle_start)
 
@@ -103,7 +121,6 @@ class PhysicsAnimation:
         """Internal function that performs a single animation step"""
 
         # Simulate next step
-        
         if (self._started is True):
             self._simulation.step_for(dt, draw_dt)
 
