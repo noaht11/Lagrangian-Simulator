@@ -20,6 +20,11 @@ class PhysicsSimulation:
     def body(self) -> NumericalBody: return self._body
     @property
     def elapsed_time(self) -> float: return self._elapsed_time
+    
+    @property
+    def init_state(self) -> np.ndarray: return self._init_state
+    @init_state.setter
+    def init_state(self, value): self._init_state = value
 
     @property
     def parameters(self) -> np.ndarray: return self._parameters

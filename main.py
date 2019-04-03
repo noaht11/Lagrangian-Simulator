@@ -5,6 +5,7 @@ import sympy as sp
 import numpy as np
 
 from physics.lagrangian import LagrangianBody, DegreeOfFreedom, Constraint
+from physics.simulation import PhysicsSimulation
 import physics.pendulum
 from physics.pendulum import CompoundPendulumPhysics
 from physics.pendulum import SinglePendulumLagrangianPhysics, SinglePendulum, SinglePendulumSolver
@@ -34,18 +35,24 @@ def create_multi_pendulum_params(n: int, L: float, m: float, I: float, k: float)
 def create_forcing(t: sp.Symbol, A: sp.Symbol, f: sp.Symbol) -> sp.Expr:
     return A * sp.cos(2*pi*f * t)
 
-def update_k(current_params: np.ndarray, k: float, n) -> np.ndarray:
+def update_k(simulation: PhysicsSimulation, k: float, n: int):
+    current_params = simulation.parameters
     for i in range(n):
         current_params[3 + 4*i] = k
-    return current_params
+    simulation.parameters = current_params
 
-def update_A(current_params: np.ndarray, A: float) -> np.ndarray:
+def update_A(simulation: PhysicsSimulation, A: float):
+    current_params = simulation.parameters
     current_params[-2] = A
-    return current_params
+    simulation.parameters = current_params
 
-def update_f(current_params: np.ndarray, f: float) -> np.ndarray:
+def update_f(simulation: PhysicsSimulation, f: float):
+    current_params = simulation.parameters
     current_params[-1] = f
-    return current_params
+    simulation.parameters = current_params
+
+def update_init_state(simulation: PhysicsSimulation, theta: float, n: int):
+    simulation.init_state = create_init_state(n, theta)
 
 ###################################################################################################################################################################################
 # MULTI PENDULUM
@@ -57,14 +64,14 @@ if __name__ == "__main__":
     step("Defining Pendulum...")
 
     ########################### CONFIG ###########################
-    n = 2
+    n = 1
 
     L = 0.045
     m = 0.003
     I = 1/12*m*L**2
     k = 0#2E-5
 
-    theta = pi/10
+    theta = 0
 
     A = 0.0
     f = 0.0
@@ -98,9 +105,10 @@ if __name__ == "__main__":
         en_reset = True,
         en_start_stop = True
     ), [
-        PhysicsAnimation.Parameter("k", 0, 1, 0.01, k, lambda current_params, new_k: update_k(current_params, new_k*10E-5, n)),
-        PhysicsAnimation.Parameter("f (Hz)", 0, 500, 1, f, lambda current_params, new_f: update_f(current_params, new_f)),
-        PhysicsAnimation.Parameter("A (cm)", 0, 2, 0.1, A, lambda current_params, new_A: update_A(current_params, new_A*1E-2))
+        PhysicsAnimation.Parameter("k", 0, 1, 0.01, k, lambda new_k: update_k(simulation, new_k*10E-5, n)),
+        PhysicsAnimation.Parameter("f (Hz)", 0, 500, 1, f, lambda new_f: update_f(simulation, new_f)),
+        PhysicsAnimation.Parameter("A (cm)", 0, 2, 0.1, A, lambda new_A: update_A(simulation, new_A*1E-2)),
+        PhysicsAnimation.Parameter("theta (rad)", -pi, pi, 0.01, theta, lambda new_theta: update_init_state(simulation, new_theta, n))
     ])
     done()
 

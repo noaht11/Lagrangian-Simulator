@@ -66,8 +66,10 @@ class PhysicsAnimation:
 
         This MUST be called before calling run()
         """
-        # Creat the figure
+        # Create the figure
         self.fig = plt.figure(figsize=(8, 8))
+        # Make room for the sliders etc.
+        self.fig.subplots_adjust(bottom=0.25)
 
         # Define the bounds of the plot
         size = self._config.size
@@ -124,12 +126,7 @@ class PhysicsAnimation:
         for parameter in self._parameters:
             ax_param = plt.axes([sld_left, sld_bottom, sld_width, sld_height], facecolor = sld_color)
             sld_param = Slider(ax_param, parameter.name, parameter.min_val, parameter.max_val, valinit = parameter.init_val, valstep = parameter.step)
-
-            def update_parameters(val, handler = parameter.on_value_changed):
-                self._simulation.parameters = handler(self._simulation.parameters, val)
-                pass
-
-            sld_param.on_changed(update_parameters)
+            sld_param.on_changed(parameter.on_value_changed)
             self._sliders.append(sld_param)
             
             sld_bottom += sld_height + sld_gap
