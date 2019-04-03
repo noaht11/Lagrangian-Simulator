@@ -455,8 +455,10 @@ def create_single_pendulum_artist(t: sp.Symbol, pivot: Tuple[sp.Expr, sp.Expr], 
     exprs = [x, y, endpoint_x, endpoint_y]
     exprs = [Lagrangian.apply_constraints(t, expr, constraints) for expr in exprs]
 
-    (exprs, qs, q_dots) = Lagrangian.symbolize(exprs, t, DoFs)
+    qs = [DoF.symbol for DoF in DoFs]
+    q_dots = [DoF.velocity_symbol for DoF in DoFs]
 
+    exprs = Lagrangian.symbolize_exprs(exprs, t, DoFs)
     exprs_lambdas = [sp.lambdify([t] + qs + q_dots, expr) for expr in exprs]
 
     return SinglePendulumArtist(*exprs_lambdas)

@@ -18,15 +18,18 @@ class Solver:
     
     def _numerical_body(self) -> NumericalBody:
         t = self._lagrangian_body.t
+        params = self._lagrangian_body.parameters()
         DoFs = self._lagrangian_body.DoFs()
+        
+        qs = [DoF.symbol for DoF in DoFs]
+        q_dots = [DoF.velocity_symbol for DoF in DoFs]
 
         U_expr = self._lagrangian_body.U()
         T_expr = self._lagrangian_body.T()
+        exprs = Lagrangian.symbolize_exprs([U_expr, T_expr], t, DoFs)
 
-        (exprs, qs, q_dots) = Lagrangian.symbolize([U_expr, T_expr], t, DoFs)
-
-        U_lambda = lambdify([t] + qs + q_dots, exprs[0])
-        T_lambda = lambdify([t] + qs + q_dots, exprs[1])
+        U_lambda = lambdify([t] + qs + q_dots + params, exprs[0])
+        T_lambda = lambdify([t] + qs + q_dots + params, exprs[1])
 
         return NumericalBody(U_lambda, T_lambda)
     
@@ -35,20 +38,21 @@ class Solver:
         params = self._lagrangian_body.parameters()
         DoFs = self._lagrangian_body.DoFs()
         
-        qs = [DoF.symbol() for DoF in DoFs]
-        q_dots = [DoF.velocity_symbol() for DoF in DoFs]
+        qs = [DoF.symbol for DoF in DoFs]
+        q_dots = [DoF.velocity_symbol for DoF in DoFs]
+        p_qs = [DoF.momentum_symbol for DoF in DoFs]
 
         # Solve the Lagrangian part of the equation of motion
         ode_expr = self._lagrangian_body.lagrangian().solve()
 
-        force_lambdas    = [lambdify([t] + ode_expr.qs + ode_expr.q_dots + params, force_expr) for force_expr in ode_expr.force_exprs]
-        momentum_lambdas = [lambdify([t] + ode_expr.qs + ode_expr.q_dots + params, momentum_expr) for momentum_expr in ode_expr.momentum_exprs]
-        velocity_lambdas = [lambdify([t] + ode_expr.qs + ode_expr.p_qs + params, velocity_expr) for velocity_expr in ode_expr.velocity_exprs]
+        force_lambdas    = [lambdify([t] + qs + q_dots + params, force_expr) for force_expr in ode_expr.force_exprs]
+        momentum_lambdas = [lambdify([t] + qs + q_dots + params, momentum_expr) for momentum_expr in ode_expr.momentum_exprs]
+        velocity_lambdas = [lambdify([t] + qs + p_qs + params, velocity_expr) for velocity_expr in ode_expr.velocity_exprs]
 
         # Solve the dissipation part of the equation of motion
         dissipative_force_exprs = self._lagrangian_body.dissipation().solve()
 
-        dissipative_force_lambdas = [lambdify([t] + ode_expr.qs + ode_expr.q_dots, dissipative_force_expr) for dissipative_force_expr in dissipative_force_exprs]
+        dissipative_force_lambdas = [lambdify([t] + qs + q_dots, dissipative_force_expr) for dissipative_force_expr in dissipative_force_exprs]
 
         numerical_odes = LagrangianNumericalODEs(ode_expr.num_q, force_lambdas, momentum_lambdas, velocity_lambdas, dissipative_force_lambdas)
         time_evolver = TimeEvolver(numerical_odes, ODEINTSolver())

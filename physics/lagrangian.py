@@ -8,6 +8,10 @@ class DegreeOfFreedom:
     def __init__(self, name: str):
         self._coordinate = sp.Function(name)
 
+        self._symbol = sp.Symbol(str(self._coordinate))
+        self._velocity_symbol = sp.Symbol(str(self._coordinate) + "_dot")
+        self._momentum_symbol = sp.Symbol("p_" + str(self._coordinate))
+
     @property
     def coordinate(self) -> sp.Function: return self._coordinate
 
@@ -17,14 +21,17 @@ class DegreeOfFreedom:
     def __str__(self):
         return str(self._coordinate)
 
+    @property
     def symbol(self) -> sp.Symbol:
-        return sp.Symbol(str(self._coordinate))
+        return self._symbol
     
+    @property
     def velocity_symbol(self) -> sp.Symbol:
-        return sp.Symbol(str(self._coordinate) + "_dot")
+        return self._velocity_symbol
 
+    @property
     def momentum_symbol(self) -> sp.Symbol:
-        return sp.Symbol("p_" + str(self._coordinate))
+        return self._momentum_symbol
 
 def degrees_of_freedom(*names) -> Tuple[DegreeOfFreedom,...]:
     return tuple(map(lambda name: DegreeOfFreedom(name), names))
@@ -60,18 +67,12 @@ class Lagrangian:
     class ODEExpressions:
         """TODO"""
 
-        def __init__(self, t: sp.Symbol, qs: List[sp.Symbol], p_qs: List[sp.Symbol], q_dots: List[sp.Symbol], force_exprs: List[sp.Expr], momentum_exprs: List[sp.Expr], velocity_exprs: List[sp.Expr]):
-            assert(len(qs) == len(p_qs))
-            assert(len(qs) == len(q_dots))
-            assert(len(qs) == len(force_exprs))
-            assert(len(qs) == len(momentum_exprs))
-            assert(len(qs) == len(velocity_exprs))
+        def __init__(self, t: sp.Symbol, force_exprs: List[sp.Expr], momentum_exprs: List[sp.Expr], velocity_exprs: List[sp.Expr]):
+            assert(len(velocity_exprs) == len(force_exprs))
+            assert(len(velocity_exprs) == len(momentum_exprs))
 
             self._t = t
 
-            self._qs = qs
-            self._p_qs = p_qs
-            self._q_dots = q_dots
             self._force_exprs = force_exprs
             self._momentum_exprs = momentum_exprs
             self._velocity_exprs = velocity_exprs
@@ -80,13 +81,7 @@ class Lagrangian:
         def t(self) -> sp.Symbol: return self._t
 
         @property
-        def num_q(self) -> int: return len(self._qs)
-        @property
-        def qs(self) -> List[sp.Symbol]: return self._qs
-        @property
-        def p_qs(self) -> List[sp.Symbol]: return self._p_qs
-        @property
-        def q_dots(self) -> List[sp.Symbol]: return self._q_dots
+        def num_q(self) -> int: return len(self._velocity_exprs)
         @property
         def force_exprs(self) -> List[sp.Symbol]: return self._force_exprs
         @property
@@ -116,10 +111,9 @@ class Lagrangian:
         return expr
 
     @staticmethod
-    def symbolize(expressions: List[sp.Expr], t: sp.Symbol, DoFs: List[DegreeOfFreedom]) -> Tuple[List[sp.Expr], List[sp.Symbol], List[sp.Symbol]]:
-        qs = [DoF.symbol() for DoF in DoFs]
-        q_dots = [DoF.velocity_symbol() for DoF in DoFs]
-
+    def symbolize_exprs(expressions: List[sp.Expr], t: sp.Symbol, DoFs: List[DegreeOfFreedom]) -> List[sp.Expr]:
+        qs = [DoF.symbol for DoF in DoFs]
+        q_dots = [DoF.velocity_symbol for DoF in DoFs]
         dq_dts = [sp.diff(q(t), t) for q in DoFs]
 
         def symbolize_expr(expr: sp.Expr, t: sp.Symbol, DoFs: List[DegreeOfFreedom], qs: List[sp.Symbol], q_dots: List[sp.Symbol], dq_dts: List[sp.Expr]) -> sp.Expr:
@@ -136,7 +130,7 @@ class Lagrangian:
 
         symbolized = [symbolize_expr(expr, t, DoFs, qs, q_dots, dq_dts) for expr in expressions]
 
-        return (symbolized, qs, q_dots)
+        return symbolized
 
     def __init__(self, L: sp.Expr, t: sp.Symbol, DoFs: List[DegreeOfFreedom]):
         self._L = L
@@ -185,17 +179,19 @@ class Lagrangian:
         L = self._L
         t = self._t
         DoFs = self._DoFs
+        
+        q_dots = [DoF.velocity_symbol for DoF in DoFs]
+        p_qs = [DoF.momentum_symbol for DoF in DoFs]
 
         # Generate force and momenta expressions
         (forces, momenta) = self.forces_and_momenta()
 
         # Replace coordinates with the corresponding symbols
-        (forces_and_momenta, qs, q_dots) = Lagrangian.symbolize(forces + momenta, t, DoFs)
+        forces_and_momenta = Lagrangian.symbolize_exprs(forces + momenta, t, DoFs)
         forces = forces_and_momenta[0:len(forces)]
         momenta = forces_and_momenta[len(forces):]
 
         # Generate system of equations to solve for velocities given momenta
-        p_qs = [DoF.momentum_symbol() for DoF in DoFs]
         velocity_eqs = []
 
         for p_q, momentum in zip(p_qs, momenta):
@@ -205,7 +201,7 @@ class Lagrangian:
         velocity_solutions, = sp.linsolve(velocity_eqs, q_dots)
         velocities = list(velocity_solutions)
 
-        return Lagrangian.ODEExpressions(t, qs, p_qs, q_dots, forces, momenta, velocities)
+        return Lagrangian.ODEExpressions(t, forces, momenta, velocities)
 
 class Dissipation:
     """TODO"""
@@ -227,7 +223,7 @@ class Dissipation:
             dF_dqdot = sp.simplify(dF_dqdot)
             dissipative_forces.append(dF_dqdot)
         
-        (dissipative_forces, _, _) = Lagrangian.symbolize(dissipative_forces, t, DoFs)
+        dissipative_forces = Lagrangian.symbolize_exprs(dissipative_forces, t, DoFs)
 
         return dissipative_forces
 
