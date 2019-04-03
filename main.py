@@ -5,9 +5,10 @@ import sympy as sp
 import numpy as np
 
 from physics.lagrangian import LagrangianBody, DegreeOfFreedom, Constraint
+import physics.pendulum
 from physics.pendulum import CompoundPendulumPhysics
 from physics.pendulum import SinglePendulumLagrangianPhysics, SinglePendulum, SinglePendulumSolver
-from physics.pendulum import n_link_pendulum, MultiPendulum, MultiPendulumSolver
+from physics.pendulum import MultiPendulum, MultiPendulumSolver
 from physics.animation import PhysicsAnimation
 
 sp.init_printing()
@@ -24,7 +25,13 @@ def create_init_state(n: int, theta: float):
 
     return np.concatenate((qs, q_dots))
 
-def create_forcing(A: float, f: float):
+def create_params(n: int, L: float, m: float, I: float, k: float):
+    params = np.array([], dtype=np.float32)
+    for i in range(n):
+        params = np.append(params, np.array([L, m, I, k]))
+    return params
+
+def create_forcing(t: sp.Symbol, A: float, f: float):
     return A * sp.cos(2*pi*f * t)
 
 ###################################################################################################################################################################################
@@ -34,31 +41,34 @@ def create_forcing(A: float, f: float):
 if __name__ == "__main__":
     print("")
 
-    n = 2
-    theta = pi/10
-
     step("Defining Pendulum...")
+
+    ########################### PENDULUM DEFINITION ###########################
+    n = 2
+
     L = 0.045
     m = 0.003
     I = 1/12*m*L**2
-    single_pendulum_physics = CompoundPendulumPhysics(
-            L = L,
-            m = m,
-            I = I,
-            k = 2E-5
-        )
-    (pendulum_lagrangian_physics, t, x, y, thetas) = n_link_pendulum(n, single_pendulum_physics)
+    k = 2E-5
+    ########################### PENDULUM DEFINITION ###########################
+
+    params = create_params(n, L, m, I, k)
+
+    (pendulum_lagrangian_physics, t, x, y) = physics.pendulum.n_link_pendulum(n, physics.pendulum.compound_pendulum_physics_generator)
     done()
 
     step("Constructing Lagrangian Body...")
-    pendulum = MultiPendulum(t, pendulum_lagrangian_physics, Constraint(x, create_forcing(0.0, 140/(2*pi))), Constraint(y, create_forcing(0.0, 140/(2*pi))))
+    pendulum = MultiPendulum(t, pendulum_lagrangian_physics, Constraint(x, create_forcing(t, 0.0, 140/(2*pi))), Constraint(y, create_forcing(t, 0.0, 140/(2*pi))))
     done()
 
     solver = MultiPendulumSolver(pendulum)
     
     step("Generating Simulation...")
+    ########################### INITIAL CONDITION ###########################
+    theta = pi/10
+    ########################### INITIAL CONDITION ###########################
     init_state = create_init_state(n, theta)
-    simulation = solver.simulate(init_state)
+    simulation = solver.simulate(init_state, params)
     done()
 
     step("Generating Artist...")

@@ -7,11 +7,12 @@ from physics.numerical import NumericalBody, TimeEvolver
 
 # Class that manages the evolution of the double pendulum over time
 class PhysicsSimulation:
-    def __init__(self, body: NumericalBody, time_evolver: TimeEvolver, init_state: np.ndarray):#, var_trackers: List[float] = []):
+    def __init__(self, body: NumericalBody, time_evolver: TimeEvolver, init_state: np.ndarray, init_params: np.ndarray):
         self._body = body
         self._time_evolver = time_evolver
-
         self._init_state = init_state
+        self._parameters = init_params
+
         self._body.state = init_state
         self._elapsed_time = 0
 
@@ -19,6 +20,9 @@ class PhysicsSimulation:
     def body(self) -> NumericalBody: return self._body
     @property
     def elapsed_time(self) -> float: return self._elapsed_time
+
+    @property
+    def parameters(self) -> np.ndarray: return self._parameters
 
     # Resets the pendulum to its initial state and returns to time 0
     def reset(self):
@@ -28,7 +32,7 @@ class PhysicsSimulation:
     # Progresses the simulation through a time step, dt
     def step(self, dt: float):
         # Calculate next state
-        next_state = self._time_evolver.evolve(self.elapsed_time, self.body.state, dt)
+        next_state = self._time_evolver.evolve(self.elapsed_time, self.body.state, dt, self.parameters)
         self._body.state = next_state
         # Update elapsed time
         self._elapsed_time += dt

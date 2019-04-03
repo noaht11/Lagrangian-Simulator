@@ -279,7 +279,7 @@ class CompoundPendulumPhysics(SinglePendulumLagrangianPhysics.PendulumPhysics):
         `extras` : additional, instance-specific properties
     """
 
-    def __init__(self, L: float, m: float, I: float, k: float = 0, **extras):
+    def __init__(self, L: sp.Symbol, m: sp.Symbol, I: sp.Symbol, k: sp.Symbol, **extras):
         self._L = L
         self._m = m
         self._I = I
@@ -287,18 +287,18 @@ class CompoundPendulumPhysics(SinglePendulumLagrangianPhysics.PendulumPhysics):
         self._extras = extras
     
     @property
-    def L(self) -> float: return self._L
+    def L(self) -> sp.Symbol: return self._L
     @property
-    def m(self) -> float: return self._m
+    def m(self) -> sp.Symbol: return self._m
     @property
-    def I(self) -> float: return self._I
+    def I(self) -> sp.Symbol: return self._I
     @property
-    def k(self) -> float: return self._k
+    def k(self) -> sp.Symbol: return self._k
     @property
     def extras(self) -> Dict[str, float]: return self._extras
 
     def parameters(self) -> List[sp.Symbol]:
-        return []
+        return [self.L, self.m, self.I, self.k]
 
     def endpoint(self, t: sp.Symbol, coordinates: SinglePendulumLagrangianPhysics.PendulumCoordinates) -> Tuple[sp.Expr, sp.Expr]:
         """Implementation of superclass method"""
@@ -408,11 +408,11 @@ class SinglePendulumArtist(Artist):
         self._line, = axes.plot([], [], '-', lw=12)
         return self._line,
 
-    def draw(self, t: float, state: np.ndarray):
-        x = self._x(t, *state)
-        y = self._y(t, *state)
-        endpoint_x = self._endpoint_x(t, *state)
-        endpoint_y = self._endpoint_y(t, *state)
+    def draw(self, t: float, state: np.ndarray, params: np.ndarray):
+        x = self._x(t, *state, *params)
+        y = self._y(t, *state, *params)
+        endpoint_x = self._endpoint_x(t, *state, *params)
+        endpoint_y = self._endpoint_y(t, *state, *params)
 
         x_data = [x, endpoint_x]
         y_data = [y, endpoint_y]
@@ -435,11 +435,11 @@ class MultiPendulumArtist(Artist):
 
         return this_mod
 
-    def draw(self, t: float, state: np.ndarray) -> Tuple:
-        this_mod = self._this.draw(t, state)
+    def draw(self, t: float, state: np.ndarray, params: np.ndarray) -> Tuple:
+        this_mod = self._this.draw(t, state, params)
         
         if (self._next is not None):
-            next_mod = self._next.draw(t, state)
+            next_mod = self._next.draw(t, state, params)
             return this_mod + next_mod
 
         return this_mod
@@ -448,7 +448,7 @@ class MultiPendulumArtist(Artist):
 # SOLVER CLASSES
 ###################################################################################################################################################################################
 
-def create_single_pendulum_artist(t: sp.Symbol, pivot: Tuple[sp.Expr, sp.Expr], endpoint: Tuple[sp.Expr, sp.Expr], DoFs: List[DegreeOfFreedom], constraints: List[Constraint]):
+def create_single_pendulum_artist(t: sp.Symbol, pivot: Tuple[sp.Expr, sp.Expr], endpoint: Tuple[sp.Expr, sp.Expr], DoFs: List[DegreeOfFreedom], constraints: List[Constraint], params: List[sp.Symbol]):
     (x, y) = pivot
     (endpoint_x, endpoint_y) = endpoint
 
@@ -459,7 +459,7 @@ def create_single_pendulum_artist(t: sp.Symbol, pivot: Tuple[sp.Expr, sp.Expr], 
     q_dots = [DoF.velocity_symbol for DoF in DoFs]
 
     exprs = Lagrangian.symbolize_exprs(exprs, t, DoFs)
-    exprs_lambdas = [sp.lambdify([t] + qs + q_dots, expr) for expr in exprs]
+    exprs_lambdas = [sp.lambdify([t] + qs + q_dots + params, expr) for expr in exprs]
 
     return SinglePendulumArtist(*exprs_lambdas)
 
@@ -475,7 +475,8 @@ class SinglePendulumSolver(Solver):
             self._single_pendulum.pivot(),
             self._single_pendulum.endpoint(),
             self._single_pendulum.DoFs(),
-            self._single_pendulum.constraints
+            self._single_pendulum.constraints,
+            self._single_pendulum.parameters()
         )
 
 class MultiPendulumSolver(Solver):
@@ -497,7 +498,8 @@ class MultiPendulumSolver(Solver):
             single.pivot(t),
             single.endpoint(t),
             self._multi_pendulum.DoFs(),
-            self._multi_pendulum.constraints
+            self._multi_pendulum.constraints,
+            self._multi_pendulum.parameters()
         )
 
         return MultiPendulumArtist(single_artist, next_artist)
@@ -509,7 +511,16 @@ class MultiPendulumSolver(Solver):
 # HELPERS
 ###################################################################################################################################################################################
 
-def n_link_pendulum(n: int, physics: SinglePendulumLagrangianPhysics.PendulumPhysics) -> Tuple[MultiPendulumLagrangianPhysics, sp.Symbol, DegreeOfFreedom, DegreeOfFreedom, List[DegreeOfFreedom]]:
+def compound_pendulum_physics_generator(i: int):
+    L = sp.Symbol("L_" + str(i))
+    m = sp.Symbol("m_" + str(i))
+    I = sp.Symbol("I_" + str(i))
+    k = sp.Symbol("k_" + str(i))
+
+    physics = CompoundPendulumPhysics(L, m, I, k)
+    return physics
+
+def n_link_pendulum(n: int, physics_generator: Callable[[int], SinglePendulumLagrangianPhysics.PendulumPhysics]) -> Tuple[MultiPendulumLagrangianPhysics, sp.Symbol, DegreeOfFreedom, DegreeOfFreedom]:
     """
     TODO
     """
@@ -520,15 +531,16 @@ def n_link_pendulum(n: int, physics: SinglePendulumLagrangianPhysics.PendulumPhy
     x_0 = DegreeOfFreedom("x_0")
     y_0 = DegreeOfFreedom("y_0")
     theta_0 = DegreeOfFreedom("theta_0")
+
+    physics = physics_generator(0)
     
     root_single_pendulum = SinglePendulumLagrangianPhysics(SinglePendulumLagrangianPhysics.PendulumCoordinates(x_0.coordinate, y_0.coordinate, theta_0.coordinate), physics, [x_0, y_0, theta_0])
     root_pendulum = MultiPendulumLagrangianPhysics(root_single_pendulum)
     last_pendulum = root_pendulum
 
-    thetas = [theta_0]
-    for i in range(n - 1):
-        theta = DegreeOfFreedom("theta_" + str(i + 1)) # 1-index the thetas
-        thetas.append(theta)
+    for i in range(1, n):
+        physics = physics_generator(i)
+        theta = DegreeOfFreedom("theta_" + str(i))
         last_pendulum = last_pendulum.attach_pendulum(t, theta, physics)
     
-    return (root_pendulum, t, x_0, y_0, thetas)
+    return (root_pendulum, t, x_0, y_0)

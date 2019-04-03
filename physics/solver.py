@@ -52,15 +52,15 @@ class Solver:
         # Solve the dissipation part of the equation of motion
         dissipative_force_exprs = self._lagrangian_body.dissipation().solve()
 
-        dissipative_force_lambdas = [lambdify([t] + qs + q_dots, dissipative_force_expr) for dissipative_force_expr in dissipative_force_exprs]
+        dissipative_force_lambdas = [lambdify([t] + qs + q_dots + params, dissipative_force_expr) for dissipative_force_expr in dissipative_force_exprs]
 
         numerical_odes = LagrangianNumericalODEs(ode_expr.num_q, force_lambdas, momentum_lambdas, velocity_lambdas, dissipative_force_lambdas)
         time_evolver = TimeEvolver(numerical_odes, ODEINTSolver())
 
         return time_evolver
     
-    def simulate(self, init_state: np.ndarray) -> PhysicsSimulation:
+    def simulate(self, init_state: np.ndarray, init_params: np.ndarray) -> PhysicsSimulation:
         body = self._numerical_body()
         time_evolver = self._time_evolver()
-
-        return PhysicsSimulation(body, time_evolver, init_state)
+        
+        return PhysicsSimulation(body, time_evolver, init_state, init_params)

@@ -15,7 +15,7 @@ class Artist(ABC):
         pass
 
     @abstractmethod
-    def draw(self, t: float, state: np.ndarray) -> Tuple:
+    def draw(self, t: float, state: np.ndarray, params: np.ndarray) -> Tuple:
         pass
 
 class PhysicsAnimation:
@@ -80,7 +80,7 @@ class PhysicsAnimation:
         self._simulation.step_for(dt, draw_dt)
 
         # Update pendulum position plot
-        artist_mod = self._artist.draw(self._simulation.elapsed_time, self._simulation.body.state)
+        artist_mod = self._artist.draw(self._simulation.elapsed_time, self._simulation.body.state, self._simulation.parameters)
 
         # Update elapsed time text
         t = self._simulation.elapsed_time

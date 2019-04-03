@@ -12,17 +12,17 @@ class NumericalODEs(ABC):
     """TODO"""
 
     @abstractmethod
-    def state_to_y(self, t: float, state: np.ndarray) -> np.ndarray:
+    def state_to_y(self, t: float, state: np.ndarray, params: np.ndarray) -> np.ndarray:
         """TODO"""
         pass
     
     @abstractmethod
-    def dy_dt(self, t: float, y: np.ndarray) -> np.ndarray:
+    def dy_dt(self, t: float, y: np.ndarray, params: np.ndarray) -> np.ndarray:
         """TODO"""
         pass
 
     @abstractmethod
-    def y_to_state(self, t: float, y: np.ndarray) -> np.ndarray:
+    def y_to_state(self, t: float, y: np.ndarray, params: np.ndarray) -> np.ndarray:
         """TODO"""
         pass
 
@@ -41,37 +41,37 @@ class LagrangianNumericalODEs(NumericalODEs):
         self._velocities = velocities
         self._dissipative_forces = dissipative_forces
     
-    def state_to_y(self, t: float, state: np.ndarray) -> np.ndarray:
+    def state_to_y(self, t: float, state: np.ndarray, params: np.ndarray) -> np.ndarray:
         """Implementation of superclass method"""
         num_q = self._num_q
         qs = state[0:num_q]
         q_dots = state[num_q:]
 
-        p_qs = np.array([momentum(t, *qs, *q_dots) for momentum in self._momenta])
+        p_qs = np.array([momentum(t, *qs, *q_dots, *params) for momentum in self._momenta])
 
         return np.concatenate((qs, p_qs))
     
-    def dy_dt(self, t: float, y: np.ndarray) -> np.ndarray:
+    def dy_dt(self, t: float, y: np.ndarray, params: np.ndarray) -> np.ndarray:
         """Implementation of superclass method"""
         num_q = self._num_q
         qs = y[0:num_q]
         p_qs = y[num_q:]
 
-        q_dots = np.array([velocity(t, *qs, *p_qs) for velocity in self._velocities])
+        q_dots = np.array([velocity(t, *qs, *p_qs, *params) for velocity in self._velocities])
         
-        forces = np.array([force(t, *qs, *q_dots) for force in self._forces])
-        dissipative_forces = np.array([dissipative_force(t, *qs, *q_dots) for dissipative_force in self._dissipative_forces])
+        forces = np.array([force(t, *qs, *q_dots, *params) for force in self._forces])
+        dissipative_forces = np.array([dissipative_force(t, *qs, *q_dots, *params) for dissipative_force in self._dissipative_forces])
         p_q_dots = forces - dissipative_forces
 
         return np.concatenate((q_dots, p_q_dots))
 
-    def y_to_state(self, t: float, y: np.ndarray) -> np.ndarray:
+    def y_to_state(self, t: float, y: np.ndarray, params: np.ndarray) -> np.ndarray:
         """Implementation of superclass method"""
         num_q = self._num_q
         qs = y[0:num_q]
         p_qs = y[num_q:]
 
-        q_dots = np.array([velocity(t, *qs, *p_qs) for velocity in self._velocities])
+        q_dots = np.array([velocity(t, *qs, *p_qs, *params) for velocity in self._velocities])
 
         return np.concatenate((qs, q_dots))
 
@@ -92,7 +92,7 @@ class ODESolver(ABC):
     """
 
     @abstractmethod
-    def solve_ode(self, t_0: float, y_0: np.ndarray, dy_dt: Callable[[float, np.ndarray], np.ndarray], dt: float) -> np.ndarray:
+    def solve_ode(self, t_0: float, y_0: np.ndarray, dy_dt: Callable[[float, np.ndarray], np.ndarray], dt: float, params: np.ndarray) -> np.ndarray:
         pass
 
 import numpy as np
@@ -101,8 +101,8 @@ from scipy.integrate import odeint
 class ODEINTSolver(ODESolver):
     """ODESolver implementation that uses scipy.integrate.odeint to solve ODEs"""
 
-    def solve_ode(self, t_0: float, y_0: np.ndarray, dy_dt: Callable[[float, np.ndarray], np.ndarray], dt: float) -> np.ndarray:
-        return odeint(dy_dt, y_0, np.array([t_0, t_0 + dt]), tfirst = True)[1]
+    def solve_ode(self, t_0: float, y_0: np.ndarray, dy_dt: Callable[[float, np.ndarray], np.ndarray], dt: float, params: np.ndarray) -> np.ndarray:
+        return odeint(dy_dt, y_0, np.array([t_0, t_0 + dt]), args = (params,), tfirst = True)[1]
 
 ###################################################################################################################################################################################
 # TIME EVOLVER
@@ -115,16 +115,16 @@ class TimeEvolver:
         self._ODEs = ODEs
         self._solver = solver
 
-    def evolve(self, t: float, state: np.ndarray, dt: float) -> np.ndarray:
+    def evolve(self, t: float, state: np.ndarray, dt: float, params: np.ndarray) -> np.ndarray:
         """Updates the state to it's new state at time t + dt"""
         # Convert the current state to y vector (at time t)
-        y_0 = self._ODEs.state_to_y(t, state)
+        y_0 = self._ODEs.state_to_y(t, state, params)
 
         # Solve the ODE
-        y_1 = self._solver.solve_ode(t, y_0, self._ODEs.dy_dt, dt)
+        y_1 = self._solver.solve_ode(t, y_0, self._ODEs.dy_dt, dt, params)
 
         # Convert resulting y vector back to state (at time d + dt now)
-        state_1 = self._ODEs.y_to_state(t + dt, y_1)
+        state_1 = self._ODEs.y_to_state(t + dt, y_1, params)
 
         # Return updated state
         return state_1
