@@ -64,7 +64,7 @@ if __name__ == "__main__":
     step("Defining Pendulum...")
 
     ########################### CONFIG ###########################
-    n = 1
+    n = 2
 
     L = 0.045
     m = 0.003
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     ), [
         PhysicsAnimation.Parameter("k", 0, 1, 0.01, k, lambda new_k: update_k(simulation, new_k*10E-5, n)),
         PhysicsAnimation.Parameter("f (Hz)", 0, 500, 1, f, lambda new_f: update_f(simulation, new_f)),
-        PhysicsAnimation.Parameter("A (cm)", 0, 2, 0.1, A, lambda new_A: update_A(simulation, new_A*1E-2)),
+        PhysicsAnimation.Parameter("A (cm)", 0, 2, 0.01, A, lambda new_A: update_A(simulation, new_A*1E-2)),
         PhysicsAnimation.Parameter("theta (rad)", -pi, pi, 0.01, theta, lambda new_theta: update_init_state(simulation, new_theta, n))
     ])
     done()
