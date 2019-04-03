@@ -78,6 +78,11 @@ class SinglePendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
         """
 
         @abstractmethod
+        def parameters(self) -> List[sp.Symbol]:
+            """See `SinglePendulumLagrangianPhysics.parameters`"""
+            pass
+
+        @abstractmethod
         def endpoint(self, t: sp.Symbol, coordinates: "PendulumCoordinates") -> Tuple[sp.Expr, sp.Expr]:
             """See `SinglePendulumLagrangianPhysics.endpoint`"""
             pass
@@ -140,6 +145,10 @@ class SinglePendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
     def DoFs(self) -> List[DegreeOfFreedom]:
         """Implementation of superclass method"""
         return self._DoFs
+    
+    def parameters(self) -> List[sp.Symbol]:
+        """Implementation of superclass method"""
+        return self._physics.parameters()
 
     def U(self, t: sp.Symbol) -> sp.Expr:
         """Implementation of superclass method"""
@@ -184,6 +193,16 @@ class MultiPendulumLagrangianPhysics(LagrangianBody.LagrangianPhysics):
             next_DoFs = self.next.DoFs()
 
         return this_DoFs + next_DoFs
+
+    def parameters(self) -> List[sp.Symbol]:
+        """Implementation of superclass method"""
+        this_parameters = self.this.parameters()
+
+        next_parameters = []
+        if (self.next is not None):
+            next_parameters = self.next.parameters()
+
+        return this_parameters + next_parameters
     
     def U(self, t: sp.Symbol) -> sp.Expr:
         """Implementation of superclass method"""
@@ -277,6 +296,9 @@ class CompoundPendulumPhysics(SinglePendulumLagrangianPhysics.PendulumPhysics):
     def k(self) -> float: return self._k
     @property
     def extras(self) -> Dict[str, float]: return self._extras
+
+    def parameters(self) -> List[sp.Symbol]:
+        return []
 
     def endpoint(self, t: sp.Symbol, coordinates: SinglePendulumLagrangianPhysics.PendulumCoordinates) -> Tuple[sp.Expr, sp.Expr]:
         """Implementation of superclass method"""
@@ -431,11 +453,11 @@ def create_single_pendulum_artist(t: sp.Symbol, pivot: Tuple[sp.Expr, sp.Expr], 
     (endpoint_x, endpoint_y) = endpoint
 
     exprs = [x, y, endpoint_x, endpoint_y]
-    exprs = list(map(lambda expr: Lagrangian.apply_constraints(t, expr, constraints), exprs))
+    exprs = [Lagrangian.apply_constraints(t, expr, constraints) for expr in exprs]
 
     (exprs, qs, q_dots) = Lagrangian.symbolize(exprs, t, DoFs)
 
-    exprs_lambdas = list(map(lambda expr: sp.lambdify([t] + qs + q_dots, expr), exprs))
+    exprs_lambdas = [sp.lambdify([t] + qs + q_dots, expr) for expr in exprs]
 
     return SinglePendulumArtist(*exprs_lambdas)
 

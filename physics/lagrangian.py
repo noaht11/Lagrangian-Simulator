@@ -117,12 +117,12 @@ class Lagrangian:
 
     @staticmethod
     def symbolize(expressions: List[sp.Expr], t: sp.Symbol, DoFs: List[DegreeOfFreedom]) -> Tuple[List[sp.Expr], List[sp.Symbol], List[sp.Symbol]]:
-        qs = list(map(lambda DoF: DoF.symbol(), DoFs))
-        q_dots = list(map(lambda DoF: DoF.velocity_symbol(), DoFs))
+        qs = [DoF.symbol() for DoF in DoFs]
+        q_dots = [DoF.velocity_symbol() for DoF in DoFs]
 
-        dq_dts = list(map(lambda q: sp.diff(q(t), t), DoFs))
+        dq_dts = [sp.diff(q(t), t) for q in DoFs]
 
-        def symbolize_expr(expr: sp.Expr, t: sp.Symbol, DoFs: List[DegreeOfFreedom], qs: List[sp.Symbol], q_dots: sp.Symbol, dq_dts: List[sp.Expr]) -> sp.Expr:
+        def symbolize_expr(expr: sp.Expr, t: sp.Symbol, DoFs: List[DegreeOfFreedom], qs: List[sp.Symbol], q_dots: List[sp.Symbol], dq_dts: List[sp.Expr]) -> sp.Expr:
             for i in range(len(DoFs)):
                 # Note: we have to do the derivative substitutions first
                 #       if we did the coordinate ones first, the derivatives would turn into derivatives of symbols instead of functions
@@ -134,7 +134,7 @@ class Lagrangian:
                 expr = expr.subs(DoFs[i](t), qs[i])
             return expr
 
-        symbolized = list(map(lambda expr: symbolize_expr(expr, t, DoFs, qs, q_dots, dq_dts), expressions))
+        symbolized = [symbolize_expr(expr, t, DoFs, qs, q_dots, dq_dts) for expr in expressions]
 
         return (symbolized, qs, q_dots)
 
@@ -195,7 +195,7 @@ class Lagrangian:
         momenta = forces_and_momenta[len(forces):]
 
         # Generate system of equations to solve for velocities given momenta
-        p_qs = list(map(lambda DoF: DoF.momentum_symbol(), DoFs))
+        p_qs = [DoF.momentum_symbol() for DoF in DoFs]
         velocity_eqs = []
 
         for p_q, momentum in zip(p_qs, momenta):
@@ -238,6 +238,11 @@ class LagrangianBody:
         def DoFs(self) -> List[DegreeOfFreedom]:
             """See LagrangianBody.DoFs"""
             pass
+        
+        @abstractmethod
+        def parameters(self) -> List[sp.Symbol]:
+            """See LagrangianBody.parameters"""
+            pass
 
         @abstractmethod
         def U(self, t: sp.Symbol) -> sp.Expr:
@@ -266,12 +271,14 @@ class LagrangianBody:
     def constraints(self) -> List[Constraint]: return self._constraints
 
     def DoFs(self) -> List[DegreeOfFreedom]:
-        """
-        Returns a list of the coordinates that are degrees of freedom of this body
-        """
+        """Returns a list of the coordinates that are degrees of freedom of this body"""
         all_DoFs = self._physics.DoFs()
         unconstrained = Lagrangian.unconstrained_DoFs(all_DoFs, self._constraints)
         return unconstrained
+        
+    def parameters(self) -> List[sp.Symbol]:
+        """Returns a list of the parameters for this body"""
+        return self._physics.parameters()
 
     @abstractmethod
     def U(self) -> sp.Expr:
