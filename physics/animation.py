@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Callable
 from abc import ABC, abstractmethod
 from time import time
 
@@ -28,10 +28,20 @@ class PhysicsAnimation:
             self.en_reset = en_reset
             self.en_start_stop = en_start_stop
 
-    def __init__(self, simulation: PhysicsSimulation, artist: Artist, config: AnimationConfig):
+    class Parameter:
+
+        def __init__(self, min: float, max: float, step: float, init_val: float, on_value_changed: Callable[[np.ndarray, float], np.ndarray]):
+            self.min = min
+            self.max = max
+            self.step = step
+            self.init_val = init_val
+            self.on_value_changed = on_value_changed
+
+    def __init__(self, simulation: PhysicsSimulation, artist: Artist, config: AnimationConfig, parameters: List[Parameter] = []):
         self._simulation = simulation
         self._artist = artist
         self._config = config
+        self._parameters = parameters
 
         self._started = True
 

@@ -19,20 +19,33 @@ def step(text: str):
 def done():
     print("Done"); sys.stdout.flush()
 
-def create_init_state(n: int, theta: float):
+def create_init_state(n: int, theta: float) -> np.ndarray:
     qs = np.ones(n, dtype = np.float32) * theta
     q_dots = np.zeros(n, dtype = np.float32)
 
     return np.concatenate((qs, q_dots))
 
-def create_multi_pendulum_params(n: int, L: float, m: float, I: float, k: float):
+def create_multi_pendulum_params(n: int, L: float, m: float, I: float, k: float) -> np.ndarray:
     params = np.array([], dtype=np.float32)
     for i in range(n):
         params = np.append(params, np.array([L, m, I, k]))
     return params
 
-def create_forcing(t: sp.Symbol, A: sp.Symbol, f: sp.Symbol):
+def create_forcing(t: sp.Symbol, A: sp.Symbol, f: sp.Symbol) -> sp.Expr:
     return A * sp.cos(2*pi*f * t)
+
+def update_k(current_params: np.ndarray, k: float, n) -> np.ndarray:
+    for i in range(n):
+        current_params[2 + 4*i] = k
+    return current_params
+
+def update_A(current_params: np.ndarray, A: float) -> np.ndarray:
+    current_params[-2] = A
+    return current_params
+
+def update_f(current_params: np.ndarray, f: float) -> np.ndarray:
+    current_params[-1] = f
+    return current_params
 
 ###################################################################################################################################################################################
 # MULTI PENDULUM
@@ -84,7 +97,11 @@ if __name__ == "__main__":
         size = L*3,
         en_reset = True,
         en_start_stop = True
-    ))
+    ), [
+        PhysicsAnimation.Parameter(0, 1, 0.01, 0, lambda current_params, new_k: update_k(current_params, new_k*5E-5, n)),
+        PhysicsAnimation.Parameter(0, 0.02, 0.001, 0, lambda current_params, new_A: update_A(current_params, new_A, n)),
+        PhysicsAnimation.Parameter(0, 500, 1, 0, lambda current_params, new_f: update_f(current_params, new_f, n))
+    ])
     done()
 
     animation.init()
