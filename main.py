@@ -49,7 +49,7 @@ if __name__ == "__main__":
     L = 0.045
     m = 0.003
     I = 1/12*m*L**2
-    k = 2E-5
+    k = 0#2E-5
 
     theta = pi/10
 
@@ -81,13 +81,14 @@ if __name__ == "__main__":
 
     step("Generating Animation...")
     animation = PhysicsAnimation(simulation, artist, PhysicsAnimation.AnimationConfig(
-        size = L*3
+        size = L*3,
+        en_start_stop = True
     ))
     done()
 
     animation.init()
     dt = 1/400*5
     draw_dt = dt
-    animation.run(dt, draw_dt, 10000)
+    animation.run(dt, draw_dt, -1)
 
     print("")

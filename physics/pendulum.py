@@ -404,9 +404,8 @@ class SinglePendulumArtist(Artist):
         self._endpoint_x = endpoint_x
         self._endpoint_y = endpoint_y
     
-    def reset(self, axes):
+    def init(self, axes):
         self._line, = axes.plot([], [], '-', lw=12)
-        return self._line,
 
     def draw(self, t: float, state: np.ndarray, params: np.ndarray):
         x = self._x(t, *state, *params)
@@ -426,14 +425,12 @@ class MultiPendulumArtist(Artist):
         self._this = this
         self._next = next
 
-    def reset(self, axes) -> Tuple:
-        this_mod = self._this.reset(axes)
+    def init(self, axes):
+        this_mod = self._this.init(axes)
         
         if (self._next is not None):
-            next_mod = self._next.reset(axes)
+            next_mod = self._next.init(axes)
             return this_mod + next_mod
-
-        return this_mod
 
     def draw(self, t: float, state: np.ndarray, params: np.ndarray) -> Tuple:
         this_mod = self._this.draw(t, state, params)
