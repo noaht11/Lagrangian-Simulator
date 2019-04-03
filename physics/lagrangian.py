@@ -31,22 +31,22 @@ def degrees_of_freedom(*names) -> Tuple[DegreeOfFreedom,...]:
     
 class Constraint:
 
-    def __init__(self, coordinate: sp.Function, expression: sp.Expr):
-        self._coordinate = coordinate
+    def __init__(self, DoF: DegreeOfFreedom, expression: sp.Expr):
+        self._DoF = DoF
         self._expression = expression
     
     @property
-    def coordinate(self) -> sp.Function: return self._coordinate
+    def DoF(self) -> DegreeOfFreedom: return self._DoF
     @property
     def expression(self) -> sp.Expr: return self._expression
 
     def __str__(self):
         # TODO also include expression
-        return str(self._coordinate)
+        return str(self._DoF)
 
     def apply_to(self, t: sp.Symbol, E: sp.Expr) -> sp.Expr:
         """Applies this constraint to the provided expression and returns the newly constrained expression"""
-        return E.subs(self.coordinate(t), self.expression)
+        return E.subs(self.DoF(t), self.expression)
 
 class Lagrangian:
     """Represents the Lagrangian for a physical system
@@ -104,7 +104,7 @@ class Lagrangian:
         for DoF in DoFs:
             constrained = False
             for constraint in constraints:
-                if (Lagrangian.same_coordinate(constraint.coordinate, DoF.coordinate)):
+                if (Lagrangian.same_coordinate(constraint.DoF.coordinate, DoF.coordinate)):
                     constrained = True
             if not constrained: free_DoFs.append(DoF)
         return free_DoFs
