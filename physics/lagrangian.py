@@ -38,14 +38,17 @@ def degrees_of_freedom(*names) -> Tuple[DegreeOfFreedom,...]:
     
 class Constraint:
 
-    def __init__(self, DoF: DegreeOfFreedom, expression: sp.Expr):
+    def __init__(self, DoF: DegreeOfFreedom, expression: sp.Expr, parameters: List[sp.Symbol] = []):
         self._DoF = DoF
         self._expression = expression
+        self._parameters = parameters
     
     @property
     def DoF(self) -> DegreeOfFreedom: return self._DoF
     @property
     def expression(self) -> sp.Expr: return self._expression
+    @property
+    def parameters(self) -> List[sp.Symbol]: return self._parameters
 
     def __str__(self):
         # TODO also include expression
@@ -274,7 +277,10 @@ class LagrangianBody:
         
     def parameters(self) -> List[sp.Symbol]:
         """Returns a list of the parameters for this body"""
-        return self._physics.parameters()
+        params = self._physics.parameters()
+        for constraint in self.constraints:
+            params += constraint.parameters
+        return params
 
     @abstractmethod
     def U(self) -> sp.Expr:
@@ -336,6 +342,3 @@ class LagrangianBody:
     def dissipation(self) -> Dissipation:
         """Generates and returns a Dissipation instance for this body"""
         return Dissipation(self.F(), self._t, self.DoFs())
-    
-    def constrain(self, *constraints: Constraint):
-        return LagrangianBody(self._physics, self._t, constraints)
