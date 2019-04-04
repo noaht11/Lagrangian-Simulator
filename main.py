@@ -1,6 +1,7 @@
 import sys
 from math import pi
 
+import argparse
 import sympy as sp
 import numpy as np
 
@@ -55,27 +56,64 @@ def update_init_state(simulation: PhysicsSimulation, theta: float, n: int):
     simulation.init_state = create_init_state(n, theta)
 
 ###################################################################################################################################################################################
-# MULTI PENDULUM
+# MAIN
 ###################################################################################################################################################################################
 
 if __name__ == "__main__":
     print("")
 
-    step("Defining Pendulum...")
+    #### CONSTANTS
+    FRICTION_SCALE_FACTOR = 1E-4
+    AMPLITUDE_SCALE_FACTOR = 1E-2
 
-    ########################### CONFIG ###########################
-    n = 2
+    ### DEFAULT CONFIG
+    n = 1
 
     L = 0.045
     m = 0.003
     I = 1/12*m*L**2
-    k = 0#2E-5
+    k = 0 * FRICTION_SCALE_FACTOR
 
-    theta = 0
+    theta = pi/10
 
-    A = 0.0
+    A = 0.0 * AMPLITUDE_SCALE_FACTOR
     f = 0.0
-    ########################### CONFIG ###########################
+
+    dt = 1/400
+    duration = -1
+
+    interactive = False
+
+    output = None
+
+    #### CMD LINE ARGS
+    parser = argparse.ArgumentParser(description="Pendulum Simulation")
+    # Required
+    parser.add_argument("n", metavar="n_links", type=int, default=n, help="Number of links in the pendulum")
+    # Optional General
+    parser.add_argument("-i", "--interactive", action="store_true", help="Set this flag to enable interactive mode")
+    parser.add_argument("-dt", type=float, default=dt, help="Time step for the simulation in seconds")
+    parser.add_argument("-d", "--duration", type=int, default=duration, help="Duration for which to run the simulation in seconds. Pass -1 to run indefinitely. If interactive is set, this will be ignored.")
+    parser.add_argument("-o", "--output", type=str, default=output, help="File path for saving a gif of the animation")
+    # Optional Pendulum Config
+    parser.add_argument("-k", "--friction", type=float, default=(k / FRICTION_SCALE_FACTOR), help="Friction coefficient (between 0 and 1)")
+    parser.add_argument("-theta", type=float, default=theta, help="Initial angle in radians")
+    parser.add_argument("-A", "--amplitude", type=float, default=(A / AMPLITUDE_SCALE_FACTOR), help="Amplitude of vertical oscillation in cm")
+    parser.add_argument("-f", "--frequency", type=float, default=f, help="Frequency of vertical oscillation in Hz")
+
+    args = parser.parse_args()
+    n = args.n
+    k = args.friction * FRICTION_SCALE_FACTOR
+    theta = args.theta
+    A = args.amplitude * AMPLITUDE_SCALE_FACTOR
+    f = args.frequency
+    dt = args.dt
+    duration = args.duration
+    interactive = args.interactive
+    output = args.output
+
+    ########################### MAIN ###########################
+    step("Defining Pendulum...")
 
     params = create_multi_pendulum_params(n, L, m, I, k)
     params = np.concatenate((params, np.array([A, f])))
@@ -101,20 +139,21 @@ if __name__ == "__main__":
 
     step("Generating Animation...")
     animation = PhysicsAnimation(simulation, artist, PhysicsAnimation.AnimationConfig(
-        size = L*4,
+        size = L*(n+1),
+        mode = (PhysicsAnimation.AnimationConfig.MODE_INTERACTIVE if interactive else PhysicsAnimation.AnimationConfig.MODE_AUTONOMOUS),
         en_reset = True,
-        en_start_stop = True
+        en_start_stop = True,
+        save_gif_path = output
     ), [
-        PhysicsAnimation.Parameter("k", 0, 1, 0.01, k, lambda new_k: update_k(simulation, new_k*10E-5, n)),
+        PhysicsAnimation.Parameter("k", 0, 1, 0.01, k, lambda new_k: update_k(simulation, new_k*FRICTION_SCALE_FACTOR, n)),
         PhysicsAnimation.Parameter("f (Hz)", 0, 500, 1, f, lambda new_f: update_f(simulation, new_f)),
-        PhysicsAnimation.Parameter("A (cm)", 0, 2, 0.01, A, lambda new_A: update_A(simulation, new_A*1E-2)),
+        PhysicsAnimation.Parameter("A (cm)", 0, 2, 0.01, A, lambda new_A: update_A(simulation, new_A*AMPLITUDE_SCALE_FACTOR)),
         PhysicsAnimation.Parameter("theta (rad)", -pi, pi, 0.01, theta, lambda new_theta: update_init_state(simulation, new_theta, n))
     ])
     done()
 
     animation.init()
-    dt = 1/400
     draw_dt = dt
-    animation.run(dt, draw_dt, -1)
+    animation.run(dt, draw_dt, duration)
 
     print("")

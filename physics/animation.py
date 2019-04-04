@@ -1,8 +1,12 @@
 from typing import List, Tuple, Callable
 from abc import ABC, abstractmethod
+import os
+from platform import system
+from pathlib import Path
 from time import time
 
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.widgets import Slider, Button
@@ -21,12 +25,31 @@ class Artist(ABC):
 
 class PhysicsAnimation:
 
+    # Toolbar configuration
+    mpl.rcParams["toolbar"] = "None"
+
+    # ImageMagick Configuration
+    """Path to modules folder of ImageMagick"""
+    MAGICK_ENV = "MAGICK_HOME"
+
+    """Name of ImageMagick executable"""
+    MAGICK_EXE = "magick.exe"
+
+    MAGICK_ENABLED = MAGICK_ENV in os.environ
+    if (MAGICK_ENABLED):
+        mpl.rcParams["animation.convert_path"] = str((Path(os.environ[MAGICK_ENV]).parent.parent / MAGICK_EXE).resolve())
+
     class AnimationConfig:
 
-        def __init__(self, size: float = 1.0, en_reset: bool = False, en_start_stop: bool = False):
+        MODE_AUTONOMOUS = 0
+        MODE_INTERACTIVE = 1
+
+        def __init__(self, size: float = 1.0, mode: int = MODE_AUTONOMOUS, en_reset: bool = False, en_start_stop: bool = False, save_gif_path: str = None):
             self.size = size
+            self.mode = mode
             self.en_reset = en_reset
             self.en_start_stop = en_start_stop
+            self.save_gif_path = save_gif_path
 
     class Parameter:
 
@@ -67,9 +90,7 @@ class PhysicsAnimation:
         This MUST be called before calling run()
         """
         # Create the figure
-        self.fig = plt.figure(figsize=(8, 8))
-        # Make room for the sliders etc.
-        self.fig.subplots_adjust(bottom=0.25)
+        self.fig = plt.figure(figsize=(9, 9))
 
         # Define the bounds of the plot
         size = self._config.size
@@ -90,11 +111,19 @@ class PhysicsAnimation:
         # Text indicators
         self.time_text_main = self.ax_main.text(0.02, 0.95, "", transform=self.ax_main.transAxes)
 
+        # Interactive
+        if (self._config.mode == PhysicsAnimation.AnimationConfig.MODE_INTERACTIVE):
+            self._init_interactive()
+
+    def _init_interactive(self):
+        # Make room for the sliders etc.
+        self.fig.subplots_adjust(bottom=0.25)
+
         btn_color = "lightgoldenrodyellow"
         btn_color_hover = "0.975"
         btn_width = 0.1
         btn_height = 0.04
-        btn_left = 0.8
+        btn_left = 0.85
 
         btn_first_bottom = 0.025
 
@@ -117,7 +146,7 @@ class PhysicsAnimation:
         sld_color = "lightgoldenrodyellow"
         sld_width = 0.6
         sld_height = 0.02
-        sld_left = 0.1
+        sld_left = 0.15
         sld_gap = 0.01
 
         sld_bottom = sld_gap * 2
@@ -179,9 +208,14 @@ class PhysicsAnimation:
         interval = draw_dt * 1000 # interval is in milliseconds
 
         frames = None
-        if (t_final != -1 and self._config.en_start_stop is not True):
+        if (t_final != -1 and (self._config.mode == PhysicsAnimation.AnimationConfig.MODE_AUTONOMOUS or self._config.en_start_stop is not True)):
             frames = int(t_final / dt)
 
         self.ani = animation.FuncAnimation(self.fig, self._animate, fargs = (dt, draw_dt), frames=frames, interval=interval, blit=True, init_func=self._reset, repeat=False)
 
+        if(self._config.mode == PhysicsAnimation.AnimationConfig.MODE_AUTONOMOUS):
+            if (self._config.save_gif_path is not None):
+                writer = animation.ImageMagickWriter(fps = int(1/dt))
+                self.ani.save(self._config.save_gif_path, writer = writer)
+        
         plt.show()
