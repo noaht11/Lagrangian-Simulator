@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Callable
+from time import time
 
 import sympy as sp
 
@@ -206,8 +207,14 @@ class Lagrangian:
         for p_q, momentum in zip(p_qs, momenta):
             momentum_eqs.append(sp.Eq(p_q, momentum))
 
+        print("")
+        # sp.pprint(momentum_eqs[0])
+
         # Solve the system of equations to get expressions for the velocities
+        start = time()
         velocity_solutions, = sp.linsolve(momentum_eqs, q_dots)
+        print("\n" + str(time() - start))
+
         velocities = list(velocity_solutions)
 
         return Lagrangian.ODEExpressions(t, forces, momenta, velocities)

@@ -85,6 +85,7 @@ if __name__ == "__main__":
     interactive = False
 
     output = None
+    output_fps = int(1/dt)
 
     #### CMD LINE ARGS
     parser = argparse.ArgumentParser(description="Pendulum Simulation")
@@ -93,8 +94,9 @@ if __name__ == "__main__":
     # Optional General
     parser.add_argument("-i", "--interactive", action="store_true", help="Set this flag to enable interactive mode")
     parser.add_argument("-dt", type=float, default=dt, help="Time step for the simulation in seconds")
-    parser.add_argument("-d", "--duration", type=int, default=duration, help="Duration for which to run the simulation in seconds. Pass -1 to run indefinitely. If interactive is set, this will be ignored.")
+    parser.add_argument("-d", "--duration", type=float, default=duration, help="Duration for which to run the simulation in seconds. Pass -1 to run indefinitely. If interactive is set, this will be ignored.")
     parser.add_argument("-o", "--output", type=str, default=output, help="File path for saving a gif of the animation")
+    parser.add_argument("-fps", type=int, default=output_fps, help="FPS for the gif")
     # Optional Pendulum Config
     parser.add_argument("-k", "--friction", type=float, default=(k / FRICTION_SCALE_FACTOR), help="Friction coefficient (between 0 and 1)")
     parser.add_argument("-theta", type=float, default=theta, help="Initial angle in radians")
@@ -111,6 +113,7 @@ if __name__ == "__main__":
     duration = args.duration
     interactive = args.interactive
     output = args.output
+    output_fps = args.fps
 
     ########################### MAIN ###########################
     step("Defining Pendulum...")
@@ -143,7 +146,8 @@ if __name__ == "__main__":
         mode = (PhysicsAnimation.AnimationConfig.MODE_INTERACTIVE if interactive else PhysicsAnimation.AnimationConfig.MODE_AUTONOMOUS),
         en_reset = True,
         en_start_stop = True,
-        save_gif_path = output
+        save_gif_path = output,
+        save_fps = output_fps
     ), [
         PhysicsAnimation.Parameter("k", 0, 1, 0.01, k, lambda new_k: update_k(simulation, new_k*FRICTION_SCALE_FACTOR, n)),
         PhysicsAnimation.Parameter("f (Hz)", 0, 500, 1, f, lambda new_f: update_f(simulation, new_f)),

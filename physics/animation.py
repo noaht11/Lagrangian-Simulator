@@ -44,12 +44,13 @@ class PhysicsAnimation:
         MODE_AUTONOMOUS = 0
         MODE_INTERACTIVE = 1
 
-        def __init__(self, size: float = 1.0, mode: int = MODE_AUTONOMOUS, en_reset: bool = False, en_start_stop: bool = False, save_gif_path: str = None):
+        def __init__(self, size: float = 1.0, mode: int = MODE_AUTONOMOUS, en_reset: bool = False, en_start_stop: bool = False, save_gif_path: str = None, save_fps: int = 30):
             self.size = size
             self.mode = mode
             self.en_reset = en_reset
             self.en_start_stop = en_start_stop
             self.save_gif_path = save_gif_path
+            self.save_fps = save_fps
 
     class Parameter:
 
@@ -215,7 +216,7 @@ class PhysicsAnimation:
 
         if(self._config.mode == PhysicsAnimation.AnimationConfig.MODE_AUTONOMOUS):
             if (self._config.save_gif_path is not None):
-                writer = animation.ImageMagickWriter(fps = int(1/dt))
+                writer = animation.ImageMagickWriter(fps = self._config.save_fps)
                 self.ani.save(self._config.save_gif_path, writer = writer)
         
         plt.show()
