@@ -71,15 +71,17 @@ class Lagrangian:
     class ODEExpressions:
         """TODO"""
 
-        def __init__(self, t: sp.Symbol, force_exprs: List[sp.Expr], momentum_exprs: List[sp.Expr], velocity_exprs: List[sp.Expr]):
-            assert(len(velocity_exprs) == len(force_exprs))
-            assert(len(velocity_exprs) == len(momentum_exprs))
+        def __init__(self, t: sp.Symbol, force_exprs: List[sp.Expr], momentum_exprs: List[sp.Expr], velocity_matrix: List[List[sp.Expr]], velocity_constant: List[sp.Expr]):
+            # assert(len(velocity_exprs) == len(force_exprs))
+            # assert(len(velocity_exprs) == len(momentum_exprs))
 
             self._t = t
 
             self._force_exprs = force_exprs
             self._momentum_exprs = momentum_exprs
-            self._velocity_exprs = velocity_exprs
+            # self._velocity_exprs = velocity_exprs
+            self._velocity_matrix = velocity_matrix
+            self._velocity_constant = velocity_constant
 
         @property
         def t(self) -> sp.Symbol: return self._t
@@ -91,7 +93,9 @@ class Lagrangian:
         @property
         def momentum_exprs(self) -> List[sp.Symbol]: return self._momentum_exprs
         @property
-        def velocity_exprs(self) -> List[sp.Symbol]: return self._velocity_exprs
+        def velocity_matrix(self) -> List[sp.Symbol]: return self._velocity_matrix
+        @property
+        def velocity_constant(self) -> List[sp.Symbol]: return self._velocity_constant
 
     @staticmethod
     def same_coordinate(a: sp.Function, b: sp.Function) -> bool:
@@ -191,7 +195,8 @@ class Lagrangian:
         DoFs = self._DoFs
         
         q_dots = [DoF.velocity_symbol for DoF in DoFs]
-        p_qs = [DoF.momentum_symbol for DoF in DoFs]
+        # dq_dts = [sp.diff(DoF(t), t) for DoF in DoFs]
+        # p_qs = [DoF.momentum_symbol for DoF in DoFs]
 
         # Generate force and momenta expressions
         (forces, momenta) = self.forces_and_momenta()
@@ -202,20 +207,47 @@ class Lagrangian:
         momenta = forces_and_momenta[len(forces):]
 
         # Generate system of equations to solve for velocities given momenta
-        momentum_eqs = []
-
-        for p_q, momentum in zip(p_qs, momenta):
-            momentum_eqs.append(sp.Eq(p_q, momentum))
+        # momentum_eqs = []
 
         print("")
+        matrix = []
+        constant = []
+        for momentum in momenta:
+            other_terms = momentum
+            matrix_row = []
+
+            for q_dot in q_dots:
+                poly = sp.Poly(other_terms, q_dot)
+                all_coeffs = poly.all_coeffs()
+                coeff = all_coeffs[0]
+                other_terms = all_coeffs[1]
+
+                matrix_row.append(coeff)
+
+            constant.append(other_terms)
+            matrix.append(matrix_row)
+
+        matrix_sym = sp.Matrix(matrix)
+        start = time()
+        inv = matrix_sym**-1
+        print(str(time() - start))
+        sp.pprint(inv)
+        
+        exit()
+
+        # for p_q, momentum in zip(p_qs, momenta):
+        #     momentum_eqs.append(sp.Eq(p_q, momentum))
+
+        # print("")
         # sp.pprint(momentum_eqs[0])
 
         # Solve the system of equations to get expressions for the velocities
-        start = time()
-        velocity_solutions, = sp.linsolve(momentum_eqs, q_dots)
-        print("\n" + str(time() - start))
+        # start = time()
 
-        velocities = list(velocity_solutions)
+        # velocity_solutions, = sp.solve(momentum_eqs, q_dots, simplify = False)
+        # print("\n" + str(time() - start))
+
+        # velocities = list(velocity_solutions)
 
         return Lagrangian.ODEExpressions(t, forces, momenta, velocities)
 
