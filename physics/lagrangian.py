@@ -172,7 +172,6 @@ class Lagrangian:
         forces = []
         for q in DoFs:
             dL_dq = sp.diff(L, q(t)).doit()
-            dL_dq = sp.simplify(dL_dq)
             forces.append(dL_dq)
 
         # Get generalized momenta
@@ -180,9 +179,8 @@ class Lagrangian:
         for q in DoFs:
             q_dot = sp.diff(q(t), t)
             dL_dqdot = sp.diff(L, q_dot).doit()
-            dL_dqdot = sp.simplify(dL_dqdot)
             momenta.append(dL_dqdot)
-        
+
         return (forces, momenta)
         
     def solve(self) -> "ODEExpressions":
@@ -307,7 +305,7 @@ class LagrangianBody:
 
         U_constrained = Lagrangian.apply_constraints(t, U_free, self._constraints)
         
-        return U_constrained.doit().simplify()
+        return U_constrained.doit()
     
     @abstractmethod
     def T(self) -> sp.Expr:
@@ -324,7 +322,7 @@ class LagrangianBody:
 
         T_constrained = Lagrangian.apply_constraints(t, T_free, self._constraints)
         
-        return T_constrained.doit().simplify()
+        return T_constrained.doit()
     
     @abstractmethod
     def F(self) -> sp.Expr:
@@ -341,7 +339,7 @@ class LagrangianBody:
 
         F_constrained = Lagrangian.apply_constraints(t, F_free, self._constraints)
 
-        return F_constrained.doit().simplify()
+        return F_constrained.doit()
     
     def lagrangian(self) -> Lagrangian:
         """Generates and returns the (simplified) Lagrangian for this body"""
