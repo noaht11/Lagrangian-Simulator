@@ -135,10 +135,18 @@ class Lagrangian:
 
         return symbolized
 
-    def __init__(self, L: sp.Expr, t: sp.Symbol, DoFs: List[DegreeOfFreedom]):
-        self._L = L
+    def __init__(self, U: sp.Expr, T: sp.Expr, t: sp.Symbol, DoFs: List[DegreeOfFreedom]):
+        self._U = U
+        self._T = T
         self._t = t
         self._DoFs = DoFs
+        
+        self._L = T - U
+    
+    @property
+    def U(self) -> sp.Expr: return self._U
+    @property
+    def T(self) -> sp.Expr: return self._T
 
     def __str__(self):
         return str(self.L)
@@ -195,13 +203,13 @@ class Lagrangian:
         momenta = forces_and_momenta[len(forces):]
 
         # Generate system of equations to solve for velocities given momenta
-        velocity_eqs = []
+        momentum_eqs = []
 
         for p_q, momentum in zip(p_qs, momenta):
-            velocity_eqs.append(sp.Eq(p_q, momentum))
+            momentum_eqs.append(sp.Eq(p_q, momentum))
 
         # Solve the system of equations to get expressions for the velocities
-        velocity_solutions, = sp.linsolve(velocity_eqs, q_dots)
+        velocity_solutions, = sp.linsolve(momentum_eqs, q_dots)
         velocities = list(velocity_solutions)
 
         return Lagrangian.ODEExpressions(t, forces, momenta, velocities)
@@ -337,7 +345,7 @@ class LagrangianBody:
     
     def lagrangian(self) -> Lagrangian:
         """Generates and returns the (simplified) Lagrangian for this body"""
-        return Lagrangian(self.T() - self.U(), self._t, self.DoFs())
+        return Lagrangian(self.U(), self.T(), self._t, self.DoFs())
     
     def dissipation(self) -> Dissipation:
         """Generates and returns a Dissipation instance for this body"""
