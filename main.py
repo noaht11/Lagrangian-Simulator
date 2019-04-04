@@ -74,12 +74,12 @@ if __name__ == "__main__":
     I = 1/12*m*L**2
     k = 0 * FRICTION_SCALE_FACTOR
 
-    theta = pi/10
+    theta = pi/2
 
     A = 0.0 * AMPLITUDE_SCALE_FACTOR
     f = 0.0
 
-    dt = 1/400
+    dt = 1/100
     duration = -1
 
     interactive = False

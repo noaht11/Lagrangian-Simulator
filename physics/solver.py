@@ -30,14 +30,17 @@ class Solver:
 
         force_lambdas    = [lambdify([t] + qs + q_dots + params, force_expr) for force_expr in ode_expr.force_exprs]
         momentum_lambdas = [lambdify([t] + qs + q_dots + params, momentum_expr) for momentum_expr in ode_expr.momentum_exprs]
-        velocity_lambdas = [lambdify([t] + qs + p_qs + params, velocity_expr) for velocity_expr in ode_expr.velocity_exprs]
+        # velocity_lambdas = [lambdify([t] + qs + p_qs + params, velocity_expr) for velocity_expr in ode_expr.velocity_exprs]
+
+        velocity_matrix_lambdas = [[lambdify([t] + qs + params, element) for element in row] for row in ode_expr.velocity_matrix]
+        velocity_constant_lambdas = [lambdify([t] + qs + params, element) for element in ode_expr.velocity_constant]
 
         # Solve the dissipation part of the equation of motion
         dissipative_force_exprs = D.solve()
 
         dissipative_force_lambdas = [lambdify([t] + qs + q_dots + params, dissipative_force_expr) for dissipative_force_expr in dissipative_force_exprs]
 
-        numerical_odes = LagrangianNumericalODEs(ode_expr.num_q, force_lambdas, momentum_lambdas, velocity_lambdas, dissipative_force_lambdas)
+        numerical_odes = LagrangianNumericalODEs(ode_expr.num_q, force_lambdas, momentum_lambdas, velocity_matrix_lambdas, velocity_constant_lambdas, dissipative_force_lambdas)
         time_evolver = TimeEvolver(numerical_odes, ODEINTSolver())
 
         return time_evolver

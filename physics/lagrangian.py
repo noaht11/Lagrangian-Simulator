@@ -87,7 +87,7 @@ class Lagrangian:
         def t(self) -> sp.Symbol: return self._t
 
         @property
-        def num_q(self) -> int: return len(self._velocity_exprs)
+        def num_q(self) -> int: return len(self._force_exprs)
         @property
         def force_exprs(self) -> List[sp.Symbol]: return self._force_exprs
         @property
@@ -210,8 +210,8 @@ class Lagrangian:
         # momentum_eqs = []
 
         print("")
-        matrix = []
-        constant = []
+        velocity_matrix = []
+        velocity_constant = []
         for momentum in momenta:
             other_terms = momentum
             matrix_row = []
@@ -224,16 +224,11 @@ class Lagrangian:
 
                 matrix_row.append(coeff)
 
-            constant.append(other_terms)
-            matrix.append(matrix_row)
+            velocity_matrix.append(matrix_row)
+            velocity_constant.append(other_terms)
 
-        matrix_sym = sp.Matrix(matrix)
-        start = time()
-        inv = matrix_sym**-1
-        print(str(time() - start))
-        sp.pprint(inv)
+        # matrix_sym = sp.Matrix(matrix)
         
-        exit()
 
         # for p_q, momentum in zip(p_qs, momenta):
         #     momentum_eqs.append(sp.Eq(p_q, momentum))
@@ -249,7 +244,7 @@ class Lagrangian:
 
         # velocities = list(velocity_solutions)
 
-        return Lagrangian.ODEExpressions(t, forces, momenta, velocities)
+        return Lagrangian.ODEExpressions(t, forces, momenta, velocity_matrix, velocity_constant)
 
 class Dissipation:
     """TODO"""

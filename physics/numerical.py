@@ -29,17 +29,31 @@ class NumericalODEs(ABC):
 class LagrangianNumericalODEs(NumericalODEs):
     """TODO"""
 
-    def __init__(self, num_q: int, forces: List[Callable[..., float]], momenta: List[Callable[..., float]], velocities: List[Callable[..., float]], dissipative_forces: List[Callable[..., float]]):
+    def __init__(self, num_q: int, forces: List[Callable[..., float]], momenta: List[Callable[..., float]], velocity_matrix: List[List[Callable[..., float]]], velocity_constant: List[Callable[..., float]], dissipative_forces: List[Callable[..., float]]):
         assert(num_q == len(forces))
         assert(num_q == len(momenta))
-        assert(num_q == len(velocities))
+        # assert(num_q == len(velocities))
         assert(num_q == len(dissipative_forces))
 
         self._num_q = num_q
         self._forces = forces
         self._momenta = momenta
-        self._velocities = velocities
+        self._velocity_matrix = velocity_matrix
+        self._velocity_constant = velocity_constant
         self._dissipative_forces = dissipative_forces
+
+    def _velocities(self, t: float, y: np.ndarray, params: np.ndarray) -> np.ndarray:
+        num_q = self._num_q
+        qs = y[0:num_q]
+        p_qs = y[num_q:]
+
+        velocity_constant = np.array([constant(t, *qs, *params) for constant in self._velocity_constant])
+        rhs = p_qs - velocity_constant
+
+        velocity_matrix = np.array([[element(t, *qs, *params) for element in row] for row in self._velocity_matrix])
+        
+        velocity_matrix_inv = np.linalg.inv(velocity_matrix)
+        return np.matmul(velocity_matrix_inv, rhs)
     
     def state_to_y(self, t: float, state: np.ndarray, params: np.ndarray) -> np.ndarray:
         """Implementation of superclass method"""
@@ -57,7 +71,8 @@ class LagrangianNumericalODEs(NumericalODEs):
         qs = y[0:num_q]
         p_qs = y[num_q:]
 
-        q_dots = np.array([velocity(t, *qs, *p_qs, *params) for velocity in self._velocities])
+        # q_dots = np.array([velocity(t, *qs, *p_qs, *params) for velocity in self._velocities])
+        q_dots = self._velocities(t, y, params)
         
         forces = np.array([force(t, *qs, *q_dots, *params) for force in self._forces])
         dissipative_forces = np.array([dissipative_force(t, *qs, *q_dots, *params) for dissipative_force in self._dissipative_forces])
@@ -71,7 +86,8 @@ class LagrangianNumericalODEs(NumericalODEs):
         qs = y[0:num_q]
         p_qs = y[num_q:]
 
-        q_dots = np.array([velocity(t, *qs, *p_qs, *params) for velocity in self._velocities])
+        # q_dots = np.array([velocity(t, *qs, *p_qs, *params) for velocity in self._velocities])
+        q_dots = self._velocities(t, y, params)
 
         return np.concatenate((qs, q_dots))
 
