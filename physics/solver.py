@@ -30,7 +30,6 @@ class Solver:
 
         force_lambdas    = [lambdify([t] + qs + q_dots + params, force_expr) for force_expr in ode_expr.force_exprs]
         momentum_lambdas = [lambdify([t] + qs + q_dots + params, momentum_expr) for momentum_expr in ode_expr.momentum_exprs]
-        # velocity_lambdas = [lambdify([t] + qs + p_qs + params, velocity_expr) for velocity_expr in ode_expr.velocity_exprs]
 
         velocity_matrix_lambdas = [[lambdify([t] + qs + params, element) for element in row] for row in ode_expr.velocity_matrix]
         velocity_constant_lambdas = [lambdify([t] + qs + params, element) for element in ode_expr.velocity_constant]

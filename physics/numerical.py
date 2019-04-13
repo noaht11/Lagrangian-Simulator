@@ -30,11 +30,6 @@ class LagrangianNumericalODEs(NumericalODEs):
     """TODO"""
 
     def __init__(self, num_q: int, forces: List[Callable[..., float]], momenta: List[Callable[..., float]], velocity_matrix: List[List[Callable[..., float]]], velocity_constant: List[Callable[..., float]], dissipative_forces: List[Callable[..., float]]):
-        assert(num_q == len(forces))
-        assert(num_q == len(momenta))
-        # assert(num_q == len(velocities))
-        assert(num_q == len(dissipative_forces))
-
         self._num_q = num_q
         self._forces = forces
         self._momenta = momenta
@@ -71,7 +66,6 @@ class LagrangianNumericalODEs(NumericalODEs):
         qs = y[0:num_q]
         p_qs = y[num_q:]
 
-        # q_dots = np.array([velocity(t, *qs, *p_qs, *params) for velocity in self._velocities])
         q_dots = self._velocities(t, y, params)
         
         forces = np.array([force(t, *qs, *q_dots, *params) for force in self._forces])
@@ -86,7 +80,6 @@ class LagrangianNumericalODEs(NumericalODEs):
         qs = y[0:num_q]
         p_qs = y[num_q:]
 
-        # q_dots = np.array([velocity(t, *qs, *p_qs, *params) for velocity in self._velocities])
         q_dots = self._velocities(t, y, params)
 
         return np.concatenate((qs, q_dots))
