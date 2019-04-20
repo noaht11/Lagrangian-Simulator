@@ -47,8 +47,7 @@ class LagrangianNumericalODEs(NumericalODEs):
 
         velocity_matrix = np.array([[element(t, *qs, *params) for element in row] for row in self._velocity_matrix])
         
-        velocity_matrix_inv = np.linalg.inv(velocity_matrix)
-        return np.matmul(velocity_matrix_inv, rhs)
+        return np.linalg.solve(velocity_matrix, rhs)
     
     def state_to_y(self, t: float, state: np.ndarray, params: np.ndarray) -> np.ndarray:
         """Implementation of superclass method"""
