@@ -1,0 +1,242 @@
+A computer simulation of the double pendulum system was developed using the Python programming language. The simulation is designed to be general purpose and capable of representing the time evolution of a variety of systems that can be described in a Lagrangian framework. The double pendulum is just one particular application of the simulation.
+
+The software is encapsulated into four layers:
+
+\begin{enumerate}
+    \item Symbolic Math
+        \begin{itemize}
+            \item The governing equations of the system are all defined symbolically using the SymPy library
+            \item This allows the equations of motion to be derived for a variety of different systems
+        \end{itemize}
+    \item Numerical Math
+        \begin{itemize}
+            \item The symbolic equations are converted into the numerical equations in preparation for solving them
+        \end{itemize}
+    \item Time Evolution
+        \begin{itemize}
+            \item The time evolution of the system is determined by numerically integrating the equations of motion
+        \end{itemize}
+    \item Animation
+        \begin{itemize}
+            \item The resulting time evolution of the system can be shown visually in an animation
+        \end{itemize}
+\end{enumerate}
+
+The mathematics and physics of the simulation will be discussed in more detail in the following sections. Details regarding the implementation of the software can be found at the project source code page:
+
+https://github.com/noaht11/Double-Pendulum
+
+\subsection{Simulation Mathematics and Physics}
+
+\subsubsection{System Modelling}
+
+The simulation is capable of solving for the time evolution of any system that can be described by:
+
+\begin{itemize}
+    \item A set of generalized coordinates
+    \item Potential and kinetic energy functions
+    \item A dissipation function
+\end{itemize}
+
+\textbf{Generalized Coordinates}
+
+The state of the system is defined in terms of a set of $n$ generalized coordinates, $q_1, \dots, q_n$, and their first time derivatives (generalized velocities), $\Dot{q_1}, \dots, \Dot{q_n}$. For ease of notation we will refer to these coordinates and velocities using the following vectors:
+
+\[
+    \vect{q} = \begin{bmatrix}q_1 \\ \vdots \\q_n \end{bmatrix}
+    ,\;
+    \Dot{\vect{q}} = \begin{bmatrix}\Dot{q_1} \\ \vdots \\\Dot{q_n} \end{bmatrix}
+\]
+
+\textbf{Potential and Kinetic Energy}
+
+The system must have a potential and kinetic energy functions of the following form:
+
+\begin{align*}
+    U &= U(\vect{q}, t)\\
+    T &= T(\vect{q}, \Dot{\vect{q}}, t)
+\end{align*}
+
+Note: This does not necessarily require the system to be conservative since the potential energy can depend on time.
+
+\textbf{Dissipation}
+
+The simulation can additionally account for a dissipation of energy in the system (such as friction) that is defined by a function of the following form (similar to the Rayleigh Dissipation Function \cite{rayleigh}):
+
+\[
+    W(\Dot{\vect{q}}, t)
+\]
+
+\subsubsection{Solving the System}
+
+Given a system represented as described above, the simulation is able to generate equations of motion using the following approach.
+
+\begin{enumerate}
+  \item Generate an expression for the Lagrangian
+  \item Calculate the generalized forces and momenta
+  \item Derive a matrix equation for the generalized velocities
+  \item Construct the equations of motion
+  \item Convert them into a system of first order ODEs
+\end{enumerate}
+
+\textbf{Lagrangian}
+
+The Lagrangian for the system is the usual one:
+\[
+    L = T(\vect{q}, \Dot{\vect{q}}, t) - U(\vect{q}, t)
+\]
+
+\textbf{Generalized Forces and Momenta}
+
+The generalized forces and momenta are also calculated in the usual way (for $i = 1 \dots n$):
+
+\begin{align}
+    p_i(\vect{q}, \Dot{\vect{q}}, t) = \frac{\partial L}{\partial \dot{q_i}} \label{sim_p_i}\\
+    F_i(\vect{q}, \Dot{\vect{q}}, t) = \frac{\partial L}{\partial q_i} \label{sim_F_i}
+\end{align}
+
+We also have to take into account the dissipative forces which are calculated as:
+\begin{align}
+    D_i(\Dot{\vect{q}}, t) = \frac{d W}{d\Dot{q_i}} \label{sim_D_i}
+\end{align}
+
+Again, these quantities can be collected into vectors for ease of notation:
+
+\[
+    \vect{p}(\vect{q}, \Dot{\vect{q}}, t) = \begin{bmatrix}p_1(\vect{q}, \Dot{\vect{q}}, t) \\ \vdots \\ p_n(\vect{q}, \Dot{\vect{q}}, t)\end{bmatrix} \;,
+    \vect{F}(\vect{q}, \Dot{\vect{q}}, t) = \begin{bmatrix}F_1(\vect{q}, \Dot{\vect{q}}, t) \\ \vdots \\ F_n(\vect{q}, \Dot{\vect{q}}, t)\end{bmatrix} \;,
+    \vect{D}(\Dot{\vect{q}}, t) = \begin{bmatrix}D_1(\Dot{\vect{q}}, t) \\ \vdots \\ D_n(\Dot{\vect{q}}, t)\end{bmatrix}
+\]
+
+\textbf{Velocity Matrix Equation}
+
+As will be shown in a later step, we need to be able to express the generalized velocities in terms of the generalized coordinates and momenta.
+
+First, consider the Cartesian coordinates of each particle $\alpha$ of the system which can be described by the function:
+
+\[
+    \vect{r_\alpha} = \vect{r_\alpha}(\vect{q}, t)
+\]
+
+We can then construct a general expression for $T$:
+
+\[
+    T = \sum_\alpha \frac{1}{2} m_\alpha {\Dot{\vect{r_\alpha}}}^2\\
+\]
+
+We can evaluate ${\Dot{\vect{r_\alpha}}}^2$ via the chain rule:
+
+\begin{align*}
+    \Dot{\vect{r_\alpha}} &= \frac{\partial \vect{r_\alpha}}{\partial t} +  \sum_i \frac{\partial \vect{r_\alpha}}{\partial q_i} \frac{d q_i}{d t}\\
+    {\Dot{\vect{r_\alpha}}}^2 &= \left( \frac{\partial \vect{r_\alpha}}{\partial t} +  \sum_j \frac{\partial \vect{r_\alpha}}{\partial q_j} \frac{d q_j}{d t} \right) \cdot \left( \frac{\partial \vect{r_\alpha}}{\partial t} +  \sum_k \frac{\partial \vect{r_\alpha}}{\partial q_k} \frac{d q_k}{d t} \right)\\
+    &= \left( \frac{\partial \vect{r_\alpha}}{\partial t} \right)^2 + 2 \left( \frac{\partial \vect{r_\alpha}}{\partial t} \cdot \sum_l \frac{\partial \vect{r_\alpha}}{\partial q_l} \Dot{q_l} \right) + \sum_{j,k} \frac{\partial \vect{r_\alpha}}{\partial q_j} \cdot \frac{\partial \vect{r_\alpha}}{\partial q_k} \Dot{q_j} \Dot{q_k}
+\end{align*}
+
+We will define three functions to simplify the expression for $T$:
+
+\begin{align*}
+    \text{Let } &A_{j,k}(\vect{q}, t) = \sum_\alpha m_\alpha \frac{\partial \vect{r_\alpha}}{\partial q_j} \cdot \frac{\partial \vect{r_\alpha}}{\partial q_k}\\
+    &B_l(\vect{q}, t) = \sum_\alpha m_\alpha \frac{\partial \vect{r_\alpha}}{\partial t} \cdot \frac{\partial \vect{r_\alpha}}{\partial q_l}\\
+    &C(\vect{q}, t) = \sum_\alpha m_\alpha \left( \frac{\partial \vect{r_\alpha}}{\partial t} \right)^2
+\end{align*}
+
+Substituting in ${\Dot{\vect{r_\alpha}}}^2$ and our functions, we get:
+
+\[
+    T = \frac{1}{2} \sum_{j,k} A_{j,k}(\vect{q}, t) \Dot{q_j} \Dot{q_k} + \sum_l B_l(\vect{q}, t) \Dot{q_l} + \frac{1}{2} C(\vect{q}, t)
+\]
+
+Since the only part of the Lagrangian that depends on $\Dot{\vect{q}}$ is the kinetic energy:
+
+\begin{align}
+    p_i &= \frac{\partial T}{\partial \dot{q_i}} \nonumber\\
+        &= \sum_j A_{i, j}(\vect{q}, t) \Dot{q_j} + B_i(\vect{q}, t) \label{sim_p_i_mat}
+\end{align}
+
+This means we can represent the equations for the generalized momenta as a matrix equation:
+
+\begin{align*}
+    \begin{bmatrix}
+        p_1 \\
+        \vdots \\
+        p_n
+    \end{bmatrix}
+    &=
+    \begin{bmatrix}
+        A_{1,1}(\vect{q}, t) & \dots & A_{1,n}(\vect{q}, t) \\
+        \vdots & \ddots & \vdots \\
+        A_{n,1}(\vect{q}, t) & \dots & A_{n,n}(\vect{q}, t)
+    \end{bmatrix}
+    \begin{bmatrix}
+        \Dot{q_1} \\
+        \vdots \\
+        \Dot{q_n}
+    \end{bmatrix}
+    +
+    \begin{bmatrix}
+        B_1(\vect{q}, t) \\
+        \vdots \\
+        B_n(\vect{q}, t)
+    \end{bmatrix}\\\\
+    \vect{p} &= \matr{A} \Dot{\vect{q}} + \vect{b}
+\end{align*}
+
+$\matr{A}$ and $\vect{b}$ are the just the coefficients and constant term that can be extracted from the expressions for $p_i$ in (\ref{sim_p_i_mat}).
+
+The matrix equation can then be solved for $\Dot{\vect{q}}$ giving:
+
+\begin{align}
+    \Dot{\vect{q}}(\vect{q}, \vect{p}, t) = \left[\matr{A}(\vect{q}, t)\right]^{-1} \left( \vect{p} - \vect{b}(\vect{q}, t) \right) \label{sim_q_dot}
+\end{align}
+
+\textbf{Equations of Motion}
+
+The equations of motion can be derived from the The Euler-Lagrange equations with a dissipation term:
+
+\[
+    \frac{d}{d t} \left( \frac{\partial L}{\partial \Dot{q_i}} \right) - \frac{\partial L}{\partial q_i} + \frac{\partial D}{\partial \Dot{q_i}} = 0 \;\; \text{for } i = 1, \dots, n
+\]
+
+or using (\ref{sim_p_i}), (\ref{sim_F_i}), and (\ref{sim_D_i})
+
+\begin{align*}
+    \frac{d}{d t} (\vect{p}(\vect{q}, \Dot{\vect{q}}, t)) - \vect{F}(\vect{q}, \Dot{\vect{q}}, t) + \vect{D}(\Dot{\vect{q}}, t) = 0\\
+    \Dot{\vect{p}}(\vect{q}, \Dot{\vect{q}}, t) = \vect{F}(\vect{q}, \Dot{\vect{q}}, t) - \vect{D}(\Dot{\vect{q}}, t)
+\end{align*}
+
+Using (\ref{sim_q_dot}), we can re-interpret $\Dot{\vect{q}}$ as a function of $\vect{q}$ and $\vect{p}$:
+
+\begin{align}
+    \Dot{\vect{p}}(\vect{q}, \vect{p}, t) = \vect{F}(\vect{q}, \Dot{\vect{q}}(\vect{q}, \vect{p}, t), t) - \vect{D}(\Dot{\vect{q}}(\vect{q}, \vect{p}, t), t) \label{sim_p_dot}
+\end{align}
+
+(\ref{sim_q_dot}) and (\ref{sim_p_dot}) represent all of our equations of motion.
+
+\textbf{System of First Order ODEs}
+
+Consider a point in phase-space describing the current state of the system: $\vect{z} = (\vect{q}, \vect{p})$
+
+We can use (\ref{sim_q_dot}) and (\ref{sim_p_dot}) to write a function $f(\vect{z}, t) = (\Dot{\vect{q}}, \Dot{\vect{p}})$, so:
+
+\begin{align}
+    \frac{d \vect{z}}{d t} = f(\vect{z}, t) \label{sim_ode}
+\end{align}
+
+(\ref{sim_ode}) is a vector first order ODE or equivalently a system of first order ODEs that can be numerically integrated to derive the time evolution of the physical system.
+
+\textbf{Summary}
+
+Using the equations we've derived, we can summarize the actions of each time step of the simulation as follows:
+
+\begin{enumerate}
+    \item Begin at a position in state-space: $\vect{s_0} = (\vect{q}, \Dot{\vect{q}})$
+    \item Convert $\vect{s_0}$ to a position in phase-space, $\vect{z_0} = (\vect{q}, \vect{p})$, by calculating $\vect{p}$ using (\ref{sim_p_i_mat})
+    \item Numerically integrate (\ref{sim_ode}) over a time interval $d t$ with an initial condition equal to $\vect{z_0}$, to get the new phase-space position, $\vect{z_1}$
+    \item Convert $\vect{z_1}$ back to a state-space position, $\vect{s_1}$, by calculating $\Dot{\vect{q}}$ using (\ref{sim_q_dot})
+\end{enumerate}
+
+The conversion from/to state-space is not required (everything could be done in phase-space). It is done only because it is easier to interpret the meaning of the values in state-space rather than phase-space.
+
+\subsection{Numerical Methods}
+
+\subsection{Simulation Findings}
