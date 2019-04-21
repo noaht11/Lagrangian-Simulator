@@ -24,7 +24,7 @@ The software is encapsulated into four layers:
 
 The mathematics and physics of the simulation will be discussed in more detail in the following sections. Details regarding the implementation of the software can be found at the project source code page:
 
-https://github.com/noaht11/Double-Pendulum
+\url{https://github.com/noaht11/Lagrangian-Simulator}
 
 \subsection{Simulation Mathematics and Physics}
 
@@ -239,4 +239,16 @@ The conversion from/to state-space is not required (everything could be done in 
 
 \subsection{Numerical Methods}
 
-\subsection{Simulation Findings}
+The numerical integration in the simulation is performed using the \textit{odeint} method in the SciPy Python library. This method in turn uses the LSODA algorithm from the FORTRAN library \textit{odepack}. It also uses an adaptive step size to ensure the estimated error remains bounded \cite{scipy}:
+
+\begin{align*}
+    \text{For the system } \frac{d \vect{z}}{d t} = f(\vect{z}, t)
+\end{align*}
+\begin{align*}
+    \max \left| \frac{\vect{e}}{e w t} \right| \leq 1 ,\;\; &\vect{e} = \text{estimated local error in } \vect{z}\\
+    &e w t = \epsilon_{rel} \left|\vect{z}\right| + \epsilon_{abs}
+\end{align*}
+
+We used the default error tolerances of $\epsilon_{rel} = \epsilon_{abs} = 1.49012 \times 10^{-8}$
+
+The LSODA algorithm automatically selects an appropriate method based on the stiffness of the system: Adams for non-stiff systems and BDF for stiff systems \cite{lsoda}.
